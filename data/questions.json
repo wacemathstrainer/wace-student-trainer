@@ -1,0 +1,248 @@
+{
+  "12Methods_SAMPLE_001_Complete.json": {
+    "_pool": "original",
+    "_filename": "12Methods_SAMPLE_001_Complete.json",
+    "questionReference": "Sample Q1 \u2014 Differentiation",
+    "sectionName": "CA",
+    "totalMarks": 6,
+    "difficultyRating": "Average",
+    "questionStimulus": "Consider the function $f(x) = 3x^2 + 2x - 1$.",
+    "examinerComment": "Students generally handled this well, though some forgot to set the derivative equal to zero.",
+    "images": [],
+    "parts": [
+      {
+        "partLabel": "a",
+        "partMarks": 2,
+        "questionText": "Find $f'(x)$.",
+        "topic": "Further differentiation and applications",
+        "subtopic": "Derivatives",
+        "conceptCategory": "Basic differentiation",
+        "problemType": "Differentiation of polynomial functions",
+        "diagramsNeeded": [],
+        "originalSolution": [
+          {
+            "text": "We differentiate $f(x) = 3x^2 + 2x - 1$ term by term.",
+            "shown": true
+          },
+          {
+            "text": "$f'(x) = 6x + 2$",
+            "shown": true
+          }
+        ],
+        "marking": [
+          {
+            "text": "Correctly differentiates $3x^2$ to get $6x$",
+            "awarded": 1
+          },
+          {
+            "text": "Correctly differentiates $2x - 1$ to get $+2$",
+            "awarded": 1
+          }
+        ],
+        "guidedSolution": "To differentiate a polynomial, apply the power rule to each term: bring the power down as a coefficient and reduce the power by 1.\\n\\nFor $3x^2$: the power is 2, so we get $3 \\times 2 \\times x^{2-1} = 6x$.\\nFor $2x$: this is $2x^1$, so we get $2 \\times 1 \\times x^{1-1} = 2$.\\nFor $-1$: this is a constant, and the derivative of any constant is 0.\\n\\nTherefore $f'(x) = 6x + 2$."
+      },
+      {
+        "partLabel": "b",
+        "partMarks": 4,
+        "questionText": "Find the coordinates of the stationary point of $f$ and determine its nature.",
+        "topic": "Further differentiation and applications",
+        "subtopic": "Stationary points",
+        "conceptCategory": "Stationary point analysis",
+        "problemType": "Stationary point classification",
+        "diagramsNeeded": [],
+        "originalSolution": [
+          {
+            "text": "At a stationary point, $f'(x) = 0$.",
+            "shown": true
+          },
+          {
+            "text": "$6x + 2 = 0$",
+            "shown": true
+          },
+          {
+            "text": "$x = -\\frac{1}{3}$",
+            "shown": true
+          },
+          {
+            "text": "$f\\left(-\\frac{1}{3}\\right) = 3\\left(-\\frac{1}{3}\\right)^2 + 2\\left(-\\frac{1}{3}\\right) - 1 = \\frac{1}{3} - \\frac{2}{3} - 1 = -\\frac{4}{3}$",
+            "shown": true
+          },
+          {
+            "text": "$f''(x) = 6 > 0$, so the stationary point is a minimum.",
+            "shown": true
+          },
+          {
+            "text": "The stationary point is $\\left(-\\frac{1}{3}, -\\frac{4}{3}\\right)$ and it is a local minimum.",
+            "shown": true
+          }
+        ],
+        "marking": [
+          {
+            "text": "Sets $f'(x) = 0$",
+            "awarded": 1
+          },
+          {
+            "text": "Solves to find $x = -\\frac{1}{3}$",
+            "awarded": 1
+          },
+          {
+            "text": "Finds $y$-coordinate $-\\frac{4}{3}$",
+            "awarded": 1
+          },
+          {
+            "text": "Uses second derivative or other valid method to classify as minimum",
+            "awarded": 1
+          }
+        ],
+        "guidedSolution": "A stationary point occurs where the gradient is zero, i.e. where $f'(x) = 0$.\\n\\nStep 1: Set $f'(x) = 0$\\n$6x + 2 = 0$\\n$6x = -2$\\n$x = -\\frac{1}{3}$\\n\\nStep 2: Find the $y$-coordinate by substituting back into $f(x)$:\\n$f\\left(-\\frac{1}{3}\\right) = 3 \\times \\frac{1}{9} + 2 \\times \\left(-\\frac{1}{3}\\right) - 1 = \\frac{1}{3} - \\frac{2}{3} - 1 = -\\frac{4}{3}$\\n\\nStep 3: Classify using the second derivative:\\n$f''(x) = 6$, which is positive for all $x$.\\nSince $f''\\left(-\\frac{1}{3}\\right) > 0$, the stationary point is a local minimum.\\n\\nAnswer: The stationary point is $\\left(-\\frac{1}{3}, -\\frac{4}{3}\\right)$, a local minimum."
+      }
+    ]
+  },
+  "12Methods_SAMPLE_002_Complete.json": {
+    "_pool": "practice",
+    "_filename": "12Methods_SAMPLE_002_Complete.json",
+    "questionReference": "Practice Q2 \u2014 Chain Rule",
+    "sectionName": "CA",
+    "totalMarks": 4,
+    "difficultyRating": "Easy",
+    "questionStimulus": "",
+    "examinerComment": "",
+    "images": [],
+    "parts": [
+      {
+        "partLabel": "a",
+        "partMarks": 4,
+        "questionText": "Differentiate $y = (2x + 3)^5$ with respect to $x$.",
+        "topic": "Further differentiation and applications",
+        "subtopic": "Derivatives",
+        "conceptCategory": "Chain rule applications",
+        "problemType": "Chain rule differentiation",
+        "diagramsNeeded": [],
+        "originalSolution": [
+          {
+            "text": "Let $u = 2x + 3$, so $y = u^5$.",
+            "shown": true
+          },
+          {
+            "text": "$\\frac{du}{dx} = 2$",
+            "shown": true
+          },
+          {
+            "text": "$\\frac{dy}{du} = 5u^4$",
+            "shown": true
+          },
+          {
+            "text": "$\\frac{dy}{dx} = \\frac{dy}{du} \\times \\frac{du}{dx} = 5u^4 \\times 2 = 10(2x+3)^4$",
+            "shown": true
+          }
+        ],
+        "marking": [
+          {
+            "text": "Identifies inner function $u = 2x + 3$",
+            "awarded": 1
+          },
+          {
+            "text": "Correctly differentiates outer function: $5u^4$",
+            "awarded": 1
+          },
+          {
+            "text": "Correctly differentiates inner function: $\\frac{du}{dx} = 2$",
+            "awarded": 1
+          },
+          {
+            "text": "Correctly applies chain rule to obtain $10(2x+3)^4$",
+            "awarded": 1
+          }
+        ],
+        "guidedSolution": "The chain rule states: if $y = f(g(x))$, then $\\frac{dy}{dx} = f'(g(x)) \\times g'(x)$.\\n\\nHere, the outer function is $u^5$ and the inner function is $u = 2x + 3$.\\n\\nDifferentiate the outer function with respect to $u$: $\\frac{d}{du}(u^5) = 5u^4$.\\n\\nDifferentiate the inner function with respect to $x$: $\\frac{d}{dx}(2x + 3) = 2$.\\n\\nMultiply them together: $\\frac{dy}{dx} = 5(2x+3)^4 \\times 2 = 10(2x+3)^4$."
+      }
+    ]
+  },
+  "12Methods_SAMPLE_003_Complete.json": {
+    "_pool": "original",
+    "_filename": "12Methods_SAMPLE_003_Complete.json",
+    "questionReference": "Sample Q3 \u2014 Integration",
+    "sectionName": "CF",
+    "totalMarks": 5,
+    "difficultyRating": "Average",
+    "questionStimulus": "",
+    "examinerComment": "Many students forgot the constant of integration or made sign errors.",
+    "images": [],
+    "parts": [
+      {
+        "partLabel": "a",
+        "partMarks": 2,
+        "questionText": "Find $\\int (4x^3 - 6x) \\, dx$.",
+        "topic": "Integrals",
+        "subtopic": "Antidifferentiation",
+        "conceptCategory": "Indefinite integrals",
+        "problemType": "Integration technique",
+        "diagramsNeeded": [],
+        "originalSolution": [
+          {
+            "text": "$\\int (4x^3 - 6x) \\, dx = \\frac{4x^4}{4} - \\frac{6x^2}{2} + C$",
+            "shown": true
+          },
+          {
+            "text": "$= x^4 - 3x^2 + C$",
+            "shown": true
+          }
+        ],
+        "marking": [
+          {
+            "text": "Correctly integrates to $x^4 - 3x^2$",
+            "awarded": 1
+          },
+          {
+            "text": "Includes constant of integration $+C$",
+            "awarded": 1
+          }
+        ],
+        "guidedSolution": "To integrate a polynomial, apply the reverse power rule: increase the power by 1 and divide by the new power.\\n\\n$\\int 4x^3 \\, dx = \\frac{4x^{3+1}}{3+1} = \\frac{4x^4}{4} = x^4$\\n\\n$\\int (-6x) \\, dx = \\frac{-6x^{1+1}}{1+1} = \\frac{-6x^2}{2} = -3x^2$\\n\\nDon't forget the constant of integration $C$!\\n\\nFinal answer: $x^4 - 3x^2 + C$."
+      },
+      {
+        "partLabel": "b",
+        "partMarks": 3,
+        "questionText": "Evaluate $\\int_1^2 (4x^3 - 6x) \\, dx$.",
+        "topic": "Integrals",
+        "subtopic": "Definite integrals",
+        "conceptCategory": "Definite integral evaluation",
+        "problemType": "Definite integral evaluation",
+        "diagramsNeeded": [],
+        "originalSolution": [
+          {
+            "text": "$\\int_1^2 (4x^3 - 6x) \\, dx = \\left[x^4 - 3x^2\\right]_1^2$",
+            "shown": true
+          },
+          {
+            "text": "$= (2^4 - 3(2)^2) - (1^4 - 3(1)^2)$",
+            "shown": true
+          },
+          {
+            "text": "$= (16 - 12) - (1 - 3)$",
+            "shown": true
+          },
+          {
+            "text": "$= 4 - (-2) = 6$",
+            "shown": true
+          }
+        ],
+        "marking": [
+          {
+            "text": "Correctly finds antiderivative $x^4 - 3x^2$",
+            "awarded": 1
+          },
+          {
+            "text": "Correctly substitutes upper and lower bounds",
+            "awarded": 1
+          },
+          {
+            "text": "Evaluates to 6",
+            "awarded": 1
+          }
+        ],
+        "guidedSolution": "For a definite integral, first find the antiderivative, then evaluate at the upper and lower limits.\\n\\nAntiderivative: $F(x) = x^4 - 3x^2$ (no $+C$ needed for definite integrals).\\n\\nApply the Fundamental Theorem of Calculus:\\n$\\int_1^2 f(x) \\, dx = F(2) - F(1)$\\n\\n$F(2) = 2^4 - 3(2^2) = 16 - 12 = 4$\\n$F(1) = 1^4 - 3(1^2) = 1 - 3 = -2$\\n\\n$F(2) - F(1) = 4 - (-2) = 4 + 2 = 6$."
+      }
+    ]
+  }
+}

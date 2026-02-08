@@ -1,0 +1,34 @@
+{
+  "12Methods_SAMPLE_001_Complete.json": {
+    "reference": "Sample Q1",
+    "section": "CA",
+    "totalMarks": 6,
+    "difficulty": "Average",
+    "partCount": 2,
+    "problemTypes": [
+      "Differentiation of polynomial functions",
+      "Stationary point classification"
+    ]
+  },
+  "12Methods_SAMPLE_002_Complete.json": {
+    "reference": "Practice Q2",
+    "section": "CA",
+    "totalMarks": 4,
+    "difficulty": "Easy",
+    "partCount": 1,
+    "problemTypes": [
+      "Chain rule differentiation"
+    ]
+  },
+  "12Methods_SAMPLE_003_Complete.json": {
+    "reference": "Sample Q3",
+    "section": "CF",
+    "totalMarks": 5,
+    "difficulty": "Average",
+    "partCount": 2,
+    "problemTypes": [
+      "Integration technique",
+      "Definite integral evaluation"
+    ]
+  }
+}

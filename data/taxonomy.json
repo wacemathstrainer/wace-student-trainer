@@ -1,0 +1,60 @@
+{
+  "Further differentiation and applications": {
+    "Derivatives": {
+      "Basic differentiation": [
+        "Differentiation of polynomial functions",
+        "Differentiation of exponential functions"
+      ],
+      "Chain rule applications": [
+        "Chain rule differentiation"
+      ],
+      "Product and quotient rules": [
+        "Product rule differentiation",
+        "Quotient rule differentiation"
+      ]
+    },
+    "Stationary points": {
+      "Stationary point analysis": [
+        "Stationary point classification"
+      ],
+      "Curve analysis": [
+        "Curve sketching with derivatives"
+      ]
+    },
+    "Applications": {
+      "Optimization": [
+        "Optimization problem"
+      ],
+      "Rates": [
+        "Rate of change problem"
+      ]
+    }
+  },
+  "Integrals": {
+    "Antidifferentiation": {
+      "Indefinite integrals": [
+        "Integration technique"
+      ],
+      "Techniques": [
+        "Integration by substitution"
+      ]
+    },
+    "Definite integrals": {
+      "Definite integral evaluation": [
+        "Definite integral evaluation"
+      ],
+      "Properties": [
+        "Evaluating definite integral using linearity and interval properties"
+      ]
+    },
+    "Applications of integration": {
+      "Areas": [
+        "Area under curve",
+        "Area between curves"
+      ],
+      "Fundamental theorem": [
+        "Fundamental theorem application"
+      ]
+    }
+  }
+}
