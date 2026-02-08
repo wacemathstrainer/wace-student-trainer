@@ -867,7 +867,7 @@ body.dark-theme #welcome-screen {
 }
 
 .question-diagram {
-    max-width: 100%;
+    max-width: 400px;
     height: auto;
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
