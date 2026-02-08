@@ -264,8 +264,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Product Rule",
       "Area Calculations",
+      "Product Rule",
       "Stationary Points"
     ],
     "partSummaries": [
@@ -340,14 +340,14 @@
       "Interval estimates for proportions"
     ],
     "subtopics": [
-      "General continuous random variables",
       "Sample proportions",
-      "Confidence intervals for proportions"
+      "Confidence intervals for proportions",
+      "General continuous random variables"
     ],
     "conceptCategories": [
+      "DRV Probability",
       "Sample Proportions",
-      "General/Other",
-      "DRV Probability"
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -471,16 +471,16 @@
       "Calculating negative binomial probability (trials until rth success)"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "General continuous random variables",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Probability",
-      "Uniform Distribution"
+      "Uniform Distribution",
+      "Binomial Probability"
     ],
     "partSummaries": [
       {
@@ -546,9 +546,9 @@
       "General continuous random variables"
     ],
     "conceptCategories": [
-      "Variance Calculations",
+      "Expected Value",
       "General/Other",
-      "Expected Value"
+      "Variance Calculations"
     ],
     "partSummaries": [
       {
@@ -613,8 +613,8 @@
       "Normal distributions"
     ],
     "conceptCategories": [
-      "General/Other",
-      "Normal Probability"
+      "Normal Probability",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -745,18 +745,18 @@
       "Making inference from CI about claimed/target value"
     ],
     "topics": [
-      "Interval estimates for proportions",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Interval estimates for proportions"
     ],
     "subtopics": [
       "Confidence intervals for proportions",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
+      "CI Calculation",
       "CI Interpretation",
       "Binomial Probability",
-      "CI Calculation"
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -848,8 +848,8 @@
       "Trigonometric functions"
     ],
     "conceptCategories": [
-      "Chain Rule",
-      "Differentiation"
+      "Differentiation",
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -960,8 +960,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Differentiation rules"
     ],
     "conceptCategories": [
       "Product Rule",
@@ -1023,8 +1023,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Quotient Rule",
-      "Stationary Points"
+      "Stationary Points",
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -1091,8 +1091,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Kinematics: Differentiation",
-      "Fundamental Theorem"
+      "Fundamental Theorem",
+      "Kinematics: Differentiation"
     ],
     "partSummaries": [
       {
@@ -1314,8 +1314,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Differentiation"
+      "Differentiation",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -1418,9 +1418,9 @@
       "General continuous random variables"
     ],
     "conceptCategories": [
-      "Variance Calculations",
       "Expected Value",
-      "Uniform Distribution"
+      "Uniform Distribution",
+      "Variance Calculations"
     ],
     "partSummaries": [
       {
@@ -1481,18 +1481,18 @@
       "Making inference from CI about claimed/target value"
     ],
     "topics": [
-      "Interval estimates for proportions",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Interval estimates for proportions"
     ],
     "subtopics": [
       "Confidence intervals for proportions",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
+      "CI Calculation",
       "CI Interpretation",
       "Binomial Probability",
-      "CI Calculation"
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -1577,8 +1577,8 @@
       "General discrete random variables"
     ],
     "conceptCategories": [
-      "DRV Expected Value",
       "Expected Value",
+      "DRV Expected Value",
       "DRV Distribution Tables"
     ],
     "partSummaries": [
@@ -1710,8 +1710,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "General/Other",
-      "Volume Calculations"
+      "Volume Calculations",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -1842,8 +1842,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Differentiation"
+      "Differentiation",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -1901,8 +1901,8 @@
       "Confidence intervals for proportions"
     ],
     "conceptCategories": [
-      "Sample Proportions",
-      "CI Calculation"
+      "CI Calculation",
+      "Sample Proportions"
     ],
     "partSummaries": [
       {
@@ -1970,16 +1970,16 @@
       "Calculating binomial probability $P(X = k)$"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "Normal distributions",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Probability",
-      "Normal Probability"
+      "Normal Probability",
+      "Binomial Probability"
     ],
     "partSummaries": [
       {
@@ -2511,12 +2511,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Product Rule",
-      "Differentiation"
+      "Differentiation",
+      "Product Rule"
     ],
     "partSummaries": [
       {
@@ -2573,9 +2573,9 @@
       "Definite integrals"
     ],
     "conceptCategories": [
-      "General/Other",
+      "Numerical Integration",
       "Area Calculations",
-      "Numerical Integration"
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -2642,8 +2642,8 @@
     ],
     "conceptCategories": [
       "Logarithmic Graphs",
-      "Logarithmic Evaluation",
-      "Logarithmic Equations"
+      "Logarithmic Equations",
+      "Logarithmic Evaluation"
     ],
     "partSummaries": [
       {
@@ -2784,9 +2784,9 @@
       "General continuous random variables"
     ],
     "conceptCategories": [
-      "Integration Techniques",
       "Area Calculations",
-      "General/Other"
+      "General/Other",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -2854,9 +2854,9 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
+      "Differentiation",
       "General/Other",
-      "Kinematics: General",
-      "Differentiation"
+      "Kinematics: General"
     ],
     "partSummaries": [
       {
@@ -2920,20 +2920,20 @@
       "Explaining inappropriateness of normal model in context"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "Normal distributions",
-      "Binomial distributions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Normal Probability",
-      "Binomial Probability",
-      "Variance Calculations",
       "DRV Variance/SD",
-      "DRV Expected Value"
+      "Variance Calculations",
+      "DRV Expected Value",
+      "Binomial Probability",
+      "Normal Probability"
     ],
     "partSummaries": [
       {
@@ -3265,11 +3265,11 @@
       "Random sampling"
     ],
     "conceptCategories": [
-      "CI Interpretation",
       "CI Calculation",
-      "Sampling Methods",
+      "Sample Proportions",
       "General/Other",
-      "Sample Proportions"
+      "CI Interpretation",
+      "Sampling Methods"
     ],
     "partSummaries": [
       {
@@ -3372,8 +3372,8 @@
     ],
     "conceptCategories": [
       "Logarithmic Laws",
-      "Logarithmic Evaluation",
-      "Logarithmic Equations"
+      "Logarithmic Equations",
+      "Logarithmic Evaluation"
     ],
     "partSummaries": [
       {
@@ -3442,10 +3442,10 @@
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
       "General/Other",
+      "Binomial Probability",
       "DRV Distribution Tables",
-      "Binomial Probability"
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -3529,8 +3529,8 @@
       "Normal distributions"
     ],
     "conceptCategories": [
-      "General/Other",
-      "Normal Probability"
+      "Normal Probability",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -3594,14 +3594,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
+      "Anti-differentiation",
       "Differentiation rules",
-      "The second derivative and applications of differentiation",
-      "Anti-differentiation"
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
+      "Differentiation",
       "Product Rule",
-      "Chain Rule",
-      "Differentiation"
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -3838,8 +3838,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Product Rule",
-      "Area Calculations"
+      "Area Calculations",
+      "Product Rule"
     ],
     "partSummaries": [
       {
@@ -4072,18 +4072,18 @@
       "Finding standard deviation given target probability and mean using inverse normal"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "Normal distributions",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Inverse Normal",
-      "Binomial Probability",
       "Normal Probability",
-      "General/Other"
+      "Inverse Normal",
+      "General/Other",
+      "Binomial Probability"
     ],
     "partSummaries": [
       {
@@ -4155,13 +4155,13 @@
       "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Calculus of the natural logarithmic function"
+      "Calculus of the natural logarithmic function",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Logarithmic Graphs",
-      "Logarithmic Evaluation",
-      "Logarithmic Equations"
+      "Logarithmic Equations",
+      "Logarithmic Evaluation"
     ],
     "partSummaries": [
       {
@@ -4347,13 +4347,13 @@
       "Integrals"
     ],
     "subtopics": [
+      "Calculus of the natural logarithmic function",
       "Logarithmic functions",
-      "Applications of integration",
-      "Calculus of the natural logarithmic function"
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "General/Other",
       "Volume Calculations",
+      "General/Other",
       "Logarithmic Evaluation"
     ],
     "partSummaries": [
@@ -4429,9 +4429,9 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
+      "Differentiation",
       "General/Other",
-      "Differentiation"
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -4562,8 +4562,8 @@
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Binomial Probability"
+      "Binomial Probability",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -4636,14 +4636,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
+      "Anti-differentiation",
       "Differentiation rules",
-      "The second derivative and applications of differentiation",
-      "Anti-differentiation"
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
+      "Differentiation",
       "Product Rule",
-      "General/Other",
-      "Differentiation"
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -4710,9 +4710,9 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Quotient Rule",
+      "Stationary Points",
       "Chain Rule",
-      "Stationary Points"
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -4889,8 +4889,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Integration Techniques",
-      "Area Calculations"
+      "Area Calculations",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -5177,9 +5177,9 @@
       "General discrete random variables"
     ],
     "conceptCategories": [
-      "DRV Expected Value",
-      "General/Other",
       "DRV Probability",
+      "General/Other",
+      "DRV Expected Value",
       "DRV Distribution Tables"
     ],
     "partSummaries": [
@@ -5256,8 +5256,8 @@
       "Calculus of the natural logarithmic function"
     ],
     "conceptCategories": [
-      "General/Other",
-      "Fundamental Theorem"
+      "Fundamental Theorem",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -5332,13 +5332,13 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Applications of integration",
-      "Exponential functions"
+      "Exponential functions",
+      "Applications of integration"
     ],
     "conceptCategories": [
       "Graph Sketching",
-      "Area Calculations",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -5427,11 +5427,11 @@
       "Confidence intervals for proportions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "CI Interpretation",
       "CI Calculation",
+      "Sample Proportions",
+      "CI Interpretation",
       "Margin of Error",
-      "Sample Proportions"
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -5610,8 +5610,8 @@
       "Random sampling"
     ],
     "conceptCategories": [
-      "Margin of Error",
-      "Sampling Methods"
+      "Sampling Methods",
+      "Margin of Error"
     ],
     "partSummaries": [
       {
@@ -5760,13 +5760,13 @@
       "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
-      "General continuous random variables",
-      "Normal distributions"
+      "Normal distributions",
+      "General continuous random variables"
     ],
     "conceptCategories": [
       "Normal Probability",
-      "Integration Techniques",
-      "Expected Value"
+      "Expected Value",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -5840,8 +5840,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
-      "Differentiation"
+      "Differentiation",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -6067,9 +6067,9 @@
       "General continuous random variables"
     ],
     "conceptCategories": [
-      "Integration Techniques",
+      "Area Calculations",
       "General/Other",
-      "Area Calculations"
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -6144,9 +6144,9 @@
       "Differentiation rules"
     ],
     "conceptCategories": [
+      "Graph Sketching",
       "Product Rule",
-      "Chain Rule",
-      "Graph Sketching"
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -6276,8 +6276,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "Exponential functions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
       "Exponential Functions",
@@ -6351,16 +6351,16 @@
       "Calculating binomial probability after determining p from normal distribution"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "Normal distributions",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Probability",
-      "Normal Probability"
+      "Normal Probability",
+      "Binomial Probability"
     ],
     "partSummaries": [
       {
@@ -6437,8 +6437,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "General/Other",
-      "Differentiation"
+      "Differentiation",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -6508,12 +6508,12 @@
       "Determining count from sample proportion given standard deviations from mean"
     ],
     "topics": [
-      "Interval estimates for proportions",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Interval estimates for proportions"
     ],
     "subtopics": [
-      "Sample proportions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Sample proportions"
     ],
     "conceptCategories": [
       "Sample Proportions",
@@ -6590,8 +6590,8 @@
       "Evaluating validity of binomial distribution assumptions in context"
     ],
     "topics": [
-      "Interval estimates for proportions",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Interval estimates for proportions"
     ],
     "subtopics": [
       "Sample proportions",
@@ -6599,11 +6599,11 @@
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "CI Interpretation",
       "CI Calculation",
+      "Sample Proportions",
+      "CI Interpretation",
       "Margin of Error",
-      "Sample Proportions"
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -6781,20 +6781,20 @@
       "Interpreting confidence interval coverage and sampling variability"
     ],
     "topics": [
-      "Interval estimates for proportions",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Interval estimates for proportions"
     ],
     "subtopics": [
+      "General discrete random variables",
       "Confidence intervals for proportions",
-      "Binomial distributions",
-      "General discrete random variables"
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
       "Expected Value",
       "CI Calculation",
+      "General/Other",
       "Binomial Probability",
-      "General/Other"
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -6998,14 +6998,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
+      "Exponential functions",
       "Differentiation rules",
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Quotient Rule",
+      "Differentiation",
       "Exponential Models",
-      "Differentiation"
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -7164,13 +7164,13 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Quotient Rule",
+      "Differentiation",
       "Product Rule",
-      "Differentiation"
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -7236,8 +7236,8 @@
       "General continuous random variables"
     ],
     "conceptCategories": [
-      "General/Other",
-      "Uniform Distribution"
+      "Uniform Distribution",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -7355,12 +7355,12 @@
       "Integrals"
     ],
     "subtopics": [
-      "Fundamental theorem",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Fundamental theorem"
     ],
     "conceptCategories": [
-      "Integration Techniques",
-      "Differentiation"
+      "Differentiation",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -7645,13 +7645,13 @@
       "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
-      "General continuous random variables",
-      "Normal distributions"
+      "Normal distributions",
+      "General continuous random variables"
     ],
     "conceptCategories": [
-      "Expected Value",
+      "Inverse Normal",
       "Volume Calculations",
-      "Inverse Normal"
+      "Expected Value"
     ],
     "partSummaries": [
       {
@@ -7717,16 +7717,16 @@
       "Discrete random variables"
     ],
     "subtopics": [
-      "Binomial distributions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
       "Expected Value",
-      "General/Other",
       "DRV Probability",
+      "General/Other",
       "DRV Expected Value",
-      "DRV Distribution Tables"
+      "DRV Distribution Tables",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -7817,16 +7817,16 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
+      "Exponential functions",
       "Differentiation rules",
       "The second derivative and applications of differentiation",
-      "Trigonometric functions",
-      "Exponential functions"
+      "Trigonometric functions"
     ],
     "conceptCategories": [
-      "Trigonometric Calculus",
+      "Exponential Models",
       "Product Rule",
       "Kinematics: General",
-      "Exponential Models"
+      "Trigonometric Calculus"
     ],
     "partSummaries": [
       {
@@ -7983,16 +7983,16 @@
       "Interval estimates for proportions"
     ],
     "subtopics": [
-      "Sample proportions",
       "Normal distributions",
+      "Sample proportions",
       "Confidence intervals for proportions"
     ],
     "conceptCategories": [
-      "CI Interpretation",
-      "Normal Probability",
       "CI Calculation",
-      "Margin of Error",
-      "Sample Proportions"
+      "Sample Proportions",
+      "Normal Probability",
+      "CI Interpretation",
+      "Margin of Error"
     ],
     "partSummaries": [
       {
@@ -8097,9 +8097,9 @@
       "Random sampling"
     ],
     "conceptCategories": [
-      "Sample Proportions",
+      "CI Calculation",
       "Sampling Methods",
-      "CI Calculation"
+      "Sample Proportions"
     ],
     "partSummaries": [
       {
@@ -8173,8 +8173,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Exponential functions"
+      "Exponential functions",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Logarithmic Graphs",
@@ -8262,8 +8262,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Increments Formula",
-      "Differentiation"
+      "Differentiation",
+      "Increments Formula"
     ],
     "partSummaries": [
       {
@@ -8320,13 +8320,13 @@
     ],
     "subtopics": [
       "Calculus of the natural logarithmic function",
-      "The second derivative and applications of differentiation",
-      "Fundamental theorem"
+      "Fundamental theorem",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
+      "Differentiation",
       "Logarithmic Laws",
-      "Quotient Rule",
-      "Differentiation"
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -8389,12 +8389,12 @@
       "Integrals"
     ],
     "subtopics": [
-      "Fundamental theorem",
-      "Definite integrals"
+      "Definite integrals",
+      "Fundamental theorem"
     ],
     "conceptCategories": [
-      "General/Other",
       "Area Calculations",
+      "General/Other",
       "Fundamental Theorem"
     ],
     "partSummaries": [
@@ -8458,19 +8458,19 @@
       "Calculating binomial probability $P(X = k)$"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "General continuous random variables",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Binomial Probability",
-      "General/Other",
       "Area Calculations",
-      "DRV Expected Value"
+      "General/Other",
+      "DRV Expected Value",
+      "Binomial Probability",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -8795,14 +8795,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Applications of integration",
       "Definite integrals",
-      "The second derivative and applications of differentiation"
+      "The second derivative and applications of differentiation",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Kinematics: Integration",
+      "Graph Sketching",
       "Kinematics: General",
-      "Graph Sketching"
+      "Kinematics: Integration"
     ],
     "partSummaries": [
       {
@@ -9068,13 +9068,13 @@
       "Integrals"
     ],
     "subtopics": [
-      "Applications of integration",
-      "Definite integrals"
+      "Definite integrals",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
+      "Numerical Integration",
       "Volume Calculations",
-      "Numerical Integration"
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -9156,8 +9156,8 @@
       "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Calculus of the natural logarithmic function"
+      "Calculus of the natural logarithmic function",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Logarithmic Laws",
@@ -9724,12 +9724,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "Exponential functions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Increments Formula",
-      "Exponential Models"
+      "Exponential Models",
+      "Increments Formula"
     ],
     "partSummaries": [
       {
@@ -9808,8 +9808,8 @@
       "Calculating binomial probability $P(X = k)$"
     ],
     "topics": [
-      "Interval estimates for proportions",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Interval estimates for proportions"
     ],
     "subtopics": [
       "Confidence intervals for proportions",
@@ -9817,8 +9817,8 @@
     ],
     "conceptCategories": [
       "CI Calculation",
-      "Binomial Setup",
-      "Binomial Probability"
+      "Binomial Probability",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -9896,10 +9896,10 @@
       "Confidence intervals for proportions"
     ],
     "conceptCategories": [
-      "Sample Proportions",
+      "CI Calculation",
       "CI Interpretation",
-      "Margin of Error",
-      "CI Calculation"
+      "Sample Proportions",
+      "Margin of Error"
     ],
     "partSummaries": [
       {
@@ -10056,9 +10056,9 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
+      "Differentiation",
       "General/Other",
-      "Differentiation"
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -10124,14 +10124,14 @@
       "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
-      "General continuous random variables",
-      "Normal distributions"
+      "Normal distributions",
+      "General continuous random variables"
     ],
     "conceptCategories": [
-      "Normal Probability",
-      "General/Other",
       "Inverse Normal",
-      "Expected Value"
+      "Expected Value",
+      "Normal Probability",
+      "General/Other"
     ],
     "partSummaries": [
       {
@@ -10221,13 +10221,13 @@
       "Discrete random variables"
     ],
     "subtopics": [
-      "Binomial distributions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
       "Expected Value",
-      "DRV Distribution Tables"
+      "DRV Distribution Tables",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -10312,9 +10312,9 @@
       "Logarithmic functions"
     ],
     "conceptCategories": [
-      "Logarithmic Laws",
       "Logarithmic Graphs",
       "Log Scales & Linearisation",
+      "Logarithmic Laws",
       "Logarithmic Equations"
     ],
     "partSummaries": [
@@ -10510,12 +10510,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Calculus of the natural logarithmic function"
+      "Calculus of the natural logarithmic function",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Logarithmic Laws",
-      "Product Rule"
+      "Product Rule",
+      "Logarithmic Laws"
     ],
     "partSummaries": [
       {
@@ -10712,16 +10712,16 @@
       "Finding n and p from mean and variance of binomial, then evaluating a probability"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
       "General continuous random variables",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Probability",
-      "Uniform Distribution"
+      "Uniform Distribution",
+      "Binomial Probability"
     ],
     "partSummaries": [
       {
@@ -10779,8 +10779,8 @@
       "Logarithmic functions"
     ],
     "conceptCategories": [
-      "Logarithmic Laws",
       "Logarithmic Graphs",
+      "Logarithmic Laws",
       "Logarithmic Equations",
       "Logarithmic Evaluation"
     ],
@@ -10915,10 +10915,10 @@
       "Trigonometric functions"
     ],
     "conceptCategories": [
-      "Trigonometric Calculus",
-      "Quotient Rule",
       "Increments Formula",
-      "Chain Rule"
+      "Chain Rule",
+      "Quotient Rule",
+      "Trigonometric Calculus"
     ],
     "partSummaries": [
       {
@@ -11259,14 +11259,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
+      "Anti-differentiation",
       "The second derivative and applications of differentiation",
-      "Trigonometric functions",
-      "Anti-differentiation"
+      "Trigonometric functions"
     ],
     "conceptCategories": [
+      "Stationary Points",
       "Trigonometric Calculus",
-      "Integration Techniques",
-      "Stationary Points"
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -11832,12 +11832,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Applications of integration",
-      "The second derivative and applications of differentiation"
+      "The second derivative and applications of differentiation",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Area Calculations"
+      "Area Calculations",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -12287,8 +12287,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Chain Rule",
-      "Graph Sketching"
+      "Graph Sketching",
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -12394,19 +12394,19 @@
       "Continuous random variable probability"
     ],
     "topics": [
+      "Discrete random variables",
       "The logarithmic function",
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
+      "Exponential functions",
       "General continuous random variables",
-      "Binomial distributions",
-      "Exponential functions"
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
       "Exponential Models",
-      "DRV Probability"
+      "DRV Probability",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -12469,12 +12469,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Definite integrals"
+      "Definite integrals",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Numerical Integration"
+      "Numerical Integration",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -12537,12 +12537,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Exponential Models",
-      "Differentiation"
+      "Differentiation",
+      "Exponential Models"
     ],
     "partSummaries": [
       {
@@ -12618,8 +12618,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
-      "Graph Sketching"
+      "Graph Sketching",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -12933,13 +12933,13 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Chain Rule",
       "Exponential Functions",
-      "Differentiation"
+      "Differentiation",
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -13024,8 +13024,8 @@
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Optimization"
+      "Optimization",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -13646,8 +13646,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Quotient Rule",
-      "Area Calculations"
+      "Area Calculations",
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -13859,13 +13859,13 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
       "Product Rule",
-      "Exponential Models",
-      "Differentiation"
+      "Differentiation",
+      "Exponential Models"
     ],
     "partSummaries": [
       {
@@ -13937,12 +13937,12 @@
       "Integrals"
     ],
     "subtopics": [
-      "Applications of integration",
-      "Definite integrals"
+      "Definite integrals",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
-      "Numerical Integration"
+      "Numerical Integration",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -14009,8 +14009,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
-      "Graph Sketching"
+      "Graph Sketching",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -14366,12 +14366,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Applications of integration",
-      "The second derivative and applications of differentiation"
+      "The second derivative and applications of differentiation",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Area Calculations"
+      "Area Calculations",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -14483,8 +14483,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Integration Techniques",
-      "Area Calculations"
+      "Area Calculations",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -14538,13 +14538,13 @@
       "Discrete random variables"
     ],
     "subtopics": [
-      "Binomial distributions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Binomial distributions"
     ],
     "conceptCategories": [
       "DRV Variance/SD",
-      "Binomial Setup",
-      "DRV Probability"
+      "DRV Probability",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -14728,8 +14728,8 @@
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Binomial Probability"
+      "Binomial Probability",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -14908,8 +14908,8 @@
       "Fundamental theorem"
     ],
     "conceptCategories": [
-      "Chain Rule",
-      "Fundamental Theorem"
+      "Fundamental Theorem",
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -14967,8 +14967,8 @@
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Optimization"
+      "Optimization",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -15089,8 +15089,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
       "Exponential Functions",
@@ -15230,12 +15230,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "Exponential functions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -15376,8 +15376,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Chain Rule",
-      "Stationary Points"
+      "Stationary Points",
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -15622,12 +15622,12 @@
       "Integrals"
     ],
     "subtopics": [
-      "Applications of integration",
-      "Exponential functions"
+      "Exponential functions",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -15756,8 +15756,8 @@
       "Differentiation rules"
     ],
     "conceptCategories": [
-      "Quotient Rule",
-      "Chain Rule"
+      "Chain Rule",
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -15858,12 +15858,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Integration Techniques",
-      "Stationary Points"
+      "Stationary Points",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -15919,8 +15919,8 @@
       "Differentiation rules"
     ],
     "conceptCategories": [
-      "Quotient Rule",
-      "Chain Rule"
+      "Chain Rule",
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -15982,12 +15982,12 @@
       "Discrete random variables"
     ],
     "subtopics": [
-      "Binomial distributions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "DRV Expected Value"
+      "DRV Expected Value",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -16099,8 +16099,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Increments Formula",
-      "Chain Rule"
+      "Chain Rule",
+      "Increments Formula"
     ],
     "partSummaries": [
       {
@@ -16405,12 +16405,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Applications of integration",
-      "The second derivative and applications of differentiation"
+      "The second derivative and applications of differentiation",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Area Calculations"
+      "Area Calculations",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -16482,8 +16482,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Normal distributions"
+      "Normal distributions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
       "Normal Probability",
@@ -16768,14 +16768,14 @@
     ],
     "subtopics": [
       "Differentiation rules",
-      "Applications of integration",
-      "The second derivative and applications of differentiation"
+      "The second derivative and applications of differentiation",
+      "Applications of integration"
     ],
     "conceptCategories": [
       "Product Rule",
       "Area Calculations",
-      "Increments Formula",
-      "Chain Rule"
+      "Chain Rule",
+      "Increments Formula"
     ],
     "partSummaries": [
       {
@@ -16914,16 +16914,16 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
       "Applications of integration",
+      "Differentiation rules",
       "Trigonometric functions"
     ],
     "conceptCategories": [
-      "Kinematics: General",
-      "Chain Rule",
-      "Trigonometric Calculus",
       "Area Calculations",
-      "Kinematics: Differentiation"
+      "Kinematics: Differentiation",
+      "Chain Rule",
+      "Kinematics: General",
+      "Trigonometric Calculus"
     ],
     "partSummaries": [
       {
@@ -17219,14 +17219,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
       "Anti-differentiation",
+      "Differentiation rules",
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Integration Techniques",
       "Area Calculations",
-      "Differentiation"
+      "Differentiation",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -17574,12 +17574,12 @@
       "Integrals"
     ],
     "subtopics": [
-      "Applications of integration",
-      "Definite integrals"
+      "Definite integrals",
+      "Applications of integration"
     ],
     "conceptCategories": [
-      "Area Calculations",
-      "Numerical Integration"
+      "Numerical Integration",
+      "Area Calculations"
     ],
     "partSummaries": [
       {
@@ -17638,12 +17638,12 @@
       "Logarithmic evaluation"
     ],
     "topics": [
-      "The logarithmic function",
-      "Discrete random variables"
+      "Discrete random variables",
+      "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "DRV Distribution Tables",
@@ -17962,9 +17962,9 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Optimization",
       "Product Rule",
-      "Area Calculations"
+      "Area Calculations",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -18081,8 +18081,8 @@
       "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Exponential functions"
+      "Exponential functions",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Exponential Functions",
@@ -18398,8 +18398,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Increments Formula",
-      "Stationary Points"
+      "Stationary Points",
+      "Increments Formula"
     ],
     "partSummaries": [
       {
@@ -18453,12 +18453,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Chain Rule",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Chain Rule"
     ],
     "partSummaries": [
       {
@@ -18930,16 +18930,16 @@
       "Exponential model problem"
     ],
     "topics": [
-      "The logarithmic function",
-      "Discrete random variables"
+      "Discrete random variables",
+      "The logarithmic function"
     ],
     "subtopics": [
-      "Binomial distributions",
-      "Exponential functions"
+      "Exponential functions",
+      "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Exponential Models"
+      "Exponential Models",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -19066,12 +19066,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "Exponential functions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Exponential Models"
+      "Exponential Models",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -19133,8 +19133,8 @@
       "Integrals"
     ],
     "subtopics": [
-      "Fundamental theorem",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Fundamental theorem"
     ],
     "conceptCategories": [
       "Integration Techniques",
@@ -19192,12 +19192,12 @@
       "Integrals"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Definite integrals"
+      "Definite integrals",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
-      "Logarithmic Laws",
-      "Numerical Integration"
+      "Numerical Integration",
+      "Logarithmic Laws"
     ],
     "partSummaries": [
       {
@@ -19479,12 +19479,12 @@
       "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Exponential functions"
+      "Exponential functions",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
-      "Logarithmic Laws",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Logarithmic Laws"
     ],
     "partSummaries": [
       {
@@ -19611,8 +19611,8 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Product Rule",
-      "Area Calculations"
+      "Area Calculations",
+      "Product Rule"
     ],
     "partSummaries": [
       {
@@ -19666,8 +19666,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Differentiation rules"
+      "Differentiation rules",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Product Rule",
@@ -19734,8 +19734,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "General discrete random variables"
+      "General discrete random variables",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
       "DRV Probability",
@@ -20102,8 +20102,8 @@
       "Exponential functions"
     ],
     "conceptCategories": [
-      "Exponential Models",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Exponential Models"
     ],
     "partSummaries": [
       {
@@ -20225,8 +20225,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Stationary Points",
-      "Differentiation"
+      "Differentiation",
+      "Stationary Points"
     ],
     "partSummaries": [
       {
@@ -20838,9 +20838,9 @@
       "Applications of integration"
     ],
     "conceptCategories": [
-      "Quotient Rule",
+      "Graph Sketching",
       "Area Calculations",
-      "Graph Sketching"
+      "Quotient Rule"
     ],
     "partSummaries": [
       {
@@ -20905,8 +20905,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Logarithmic functions",
       "Differentiation rules",
+      "Logarithmic functions",
       "Fundamental theorem"
     ],
     "conceptCategories": [
@@ -20976,14 +20976,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
+      "Exponential functions",
       "Logarithmic functions",
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Logarithmic Graphs",
+      "Graph Sketching",
       "Exponential Functions",
-      "Graph Sketching"
+      "Logarithmic Graphs"
     ],
     "partSummaries": [
       {
@@ -21105,12 +21105,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Exponential Models",
-      "Differentiation"
+      "Differentiation",
+      "Exponential Models"
     ],
     "partSummaries": [
       {
@@ -21175,14 +21175,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
+      "Exponential functions",
       "Confidence intervals for proportions",
-      "Exponential functions"
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
+      "CI Calculation",
       "Exponential Models",
-      "CI Calculation"
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -21300,13 +21300,13 @@
       "Discrete random variables"
     ],
     "subtopics": [
-      "Binomial distributions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Binomial distributions"
     ],
     "conceptCategories": [
       "Binomial Setup",
-      "Binomial Probability",
-      "DRV Distribution Tables"
+      "DRV Distribution Tables",
+      "Binomial Probability"
     ],
     "partSummaries": [
       {
@@ -21525,13 +21525,13 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "Exponential functions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
+      "Exponential Functions",
       "Exponential Models",
-      "Exponential Functions"
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -21767,8 +21767,8 @@
       "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Exponential functions"
+      "Exponential functions",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Logarithmic Graphs",
@@ -21946,8 +21946,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Differentiation rules"
     ],
     "conceptCategories": [
       "Integration Techniques",
@@ -22019,9 +22019,9 @@
       "General continuous random variables"
     ],
     "conceptCategories": [
+      "Differentiation",
       "DRV Probability",
-      "Kinematics: Differentiation",
-      "Differentiation"
+      "Kinematics: Differentiation"
     ],
     "partSummaries": [
       {
@@ -22080,12 +22080,12 @@
       "Variance/SD calculation"
     ],
     "topics": [
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Discrete random variables",
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
-      "General continuous random variables",
-      "General discrete random variables"
+      "General discrete random variables",
+      "General continuous random variables"
     ],
     "conceptCategories": [
       "DRV Variance/SD",
@@ -22330,8 +22330,8 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Exponential functions"
+      "Exponential functions",
+      "Differentiation rules"
     ],
     "conceptCategories": [
       "Exponential Functions",
@@ -22394,16 +22394,16 @@
       "Solving logarithmic equation"
     ],
     "topics": [
-      "The logarithmic function",
-      "Discrete random variables"
+      "Discrete random variables",
+      "The logarithmic function"
     ],
     "subtopics": [
       "Logarithmic functions",
       "Binomial distributions"
     ],
     "conceptCategories": [
-      "Binomial Setup",
-      "Logarithmic Equations"
+      "Logarithmic Equations",
+      "Binomial Setup"
     ],
     "partSummaries": [
       {
@@ -22466,12 +22466,12 @@
       "The logarithmic function"
     ],
     "subtopics": [
-      "Logarithmic functions",
-      "Exponential functions"
+      "Exponential functions",
+      "Logarithmic functions"
     ],
     "conceptCategories": [
-      "Logarithmic Laws",
       "Exponential Functions",
+      "Logarithmic Laws",
       "Logarithmic Evaluation"
     ],
     "partSummaries": [
@@ -22614,19 +22614,19 @@
       "Normal distribution probability"
     ],
     "topics": [
+      "Discrete random variables",
       "The logarithmic function",
-      "Continuous random variables and the normal distribution",
-      "Discrete random variables"
+      "Continuous random variables and the normal distribution"
     ],
     "subtopics": [
-      "Normal distributions",
       "Exponential functions",
-      "General discrete random variables"
+      "General discrete random variables",
+      "Normal distributions"
     ],
     "conceptCategories": [
-      "DRV Expected Value",
       "Normal Probability",
-      "Exponential Models"
+      "Exponential Models",
+      "DRV Expected Value"
     ],
     "partSummaries": [
       {
@@ -22689,12 +22689,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "The second derivative and applications of differentiation",
-      "Exponential functions"
+      "Exponential functions",
+      "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Optimization",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Optimization"
     ],
     "partSummaries": [
       {
@@ -22840,14 +22840,14 @@
       "Interval estimates for proportions"
     ],
     "subtopics": [
+      "Exponential functions",
       "Sample proportions",
-      "Confidence intervals for proportions",
-      "Exponential functions"
+      "Confidence intervals for proportions"
     ],
     "conceptCategories": [
       "CI Calculation",
-      "Sample Size",
-      "Exponential Models"
+      "Exponential Models",
+      "Sample Size"
     ],
     "partSummaries": [
       {
@@ -22920,12 +22920,12 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Differentiation rules",
-      "Anti-differentiation"
+      "Anti-differentiation",
+      "Differentiation rules"
     ],
     "conceptCategories": [
-      "Integration Techniques",
-      "Differentiation"
+      "Differentiation",
+      "Integration Techniques"
     ],
     "partSummaries": [
       {
@@ -22990,8 +22990,8 @@
       "The second derivative and applications of differentiation"
     ],
     "conceptCategories": [
-      "Increments Formula",
-      "Stationary Points"
+      "Stationary Points",
+      "Increments Formula"
     ],
     "partSummaries": [
       {
@@ -23049,10 +23049,10 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "General continuous random variables",
-      "Differentiation rules",
+      "Exponential functions",
       "Fundamental theorem",
-      "Exponential functions"
+      "Differentiation rules",
+      "General continuous random variables"
     ],
     "conceptCategories": [
       "Exponential Functions",
@@ -23131,14 +23131,14 @@
       "Further differentiation and applications"
     ],
     "subtopics": [
-      "Logarithmic functions",
+      "Exponential functions",
       "Differentiation rules",
-      "Exponential functions"
+      "Logarithmic functions"
     ],
     "conceptCategories": [
       "Logarithmic Graphs",
-      "Product Rule",
-      "Exponential Functions"
+      "Exponential Functions",
+      "Product Rule"
     ],
     "partSummaries": [
       {
