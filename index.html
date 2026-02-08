@@ -32,7 +32,28 @@
 </head>
 <body>
     <!-- ============================================================ -->
-    <!-- WELCOME SCREEN (first-run only)                              -->
+    <!-- ACCESS CODE SCREEN (shown before welcome, if not yet claimed) -->
+    <!-- ============================================================ -->
+    <div id="access-code-screen" class="screen" style="display:none;">
+        <div class="welcome-container">
+            <div class="welcome-icon" id="access-icon-area"></div>
+            <h1>WACE Methods Study Trainer</h1>
+            <p class="welcome-subtitle">Year 12 Mathematics Methods</p>
+            <div class="welcome-form">
+                <label for="access-code-input">Enter your access code</label>
+                <input type="text" id="access-code-input" placeholder="e.g. METH-K7X3-P9R2"
+                       maxlength="20" autocomplete="off" style="text-transform:uppercase; letter-spacing:2px; text-align:center; font-size:1.2em;">
+                <p class="welcome-hint">Your teacher will give you a unique code.</p>
+                <div id="access-code-error" style="color:#e74c3c; font-weight:600; margin:8px 0; display:none;"></div>
+                <button id="access-code-btn" class="btn btn-primary btn-large" disabled>
+                    Verify Code
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- WELCOME SCREEN (first-run only, after code verified)         -->
     <!-- ============================================================ -->
     <div id="welcome-screen" class="screen" style="display:none;">
         <div class="welcome-container">
@@ -468,6 +489,7 @@
 
     <!-- App configuration and code -->
     <script src="firebase-config.js"></script>
+    <script src="access-codes.js"></script>
     <script src="firebase-sync.js"></script>
     <script src="app.js"></script>
 </body>

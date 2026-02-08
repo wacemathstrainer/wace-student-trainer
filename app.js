@@ -1728,6 +1728,7 @@ var UI = {
      * Show the welcome screen for first-run setup.
      */
     showWelcomeScreen: function() {
+        document.getElementById("access-code-screen").style.display = "none";
         document.getElementById("welcome-screen").style.display = "flex";
         document.getElementById("app-container").style.display = "none";
 
@@ -1780,13 +1781,36 @@ var UI = {
             updatesImported: []
         };
 
-        DB.put(STORE_CONFIG, config).then(function() {
-            console.log("Config saved for: " + name);
-            UI.showMainApp(config);
-        }).catch(function(err) {
-            console.error("Failed to save config:", err);
-            // Show app anyway
-            UI.showMainApp(config);
+        // Complete the access code claim with the student's name
+        var claimPromise;
+        if (window._needsAccessClaim && typeof AccessControl !== "undefined") {
+            claimPromise = AccessControl.completeClaim(name).then(function(result) {
+                if (!result.success) {
+                    alert("Could not activate your code: " + result.reason +
+                        "\n\nPlease try again or contact your teacher.");
+                    return false;
+                }
+                return true;
+            });
+        } else {
+            claimPromise = Promise.resolve(true);
+        }
+
+        claimPromise.then(function(ok) {
+            if (!ok) return; // Claim failed -- stay on welcome screen
+
+            // Set up Firebase sync with student identity
+            if (typeof FirebaseSync !== "undefined" && FirebaseSync.setStudent) {
+                FirebaseSync.setStudent(name, CLASS_CODE);
+            }
+
+            return DB.put(STORE_CONFIG, config).then(function() {
+                console.log("Config saved for: " + name);
+                UI.showMainApp(config);
+            }).catch(function(err) {
+                console.error("Failed to save config:", err);
+                UI.showMainApp(config);
+            });
         });
     },
 
@@ -1794,6 +1818,7 @@ var UI = {
      * Show the main application (after welcome or on returning user).
      */
     showMainApp: function(config) {
+        document.getElementById("access-code-screen").style.display = "none";
         document.getElementById("welcome-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
 
@@ -4220,43 +4245,70 @@ function initApp() {
     // Step 1: Fetch all data files from the server
     DataLoader.loadAll().then(function(loadedData) {
 
-        // Step 2: Initialise question engine with fetched data
+        // Step 2: Initialise Firebase (needed for access code check)
+        if (typeof firebase !== "undefined" && FIREBASE_ENABLED) {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(FIREBASE_CONFIG);
+            }
+        }
+
+        // Step 3: Check access code
+        return AccessControl.checkExistingAccess().then(function(access) {
+            if (access.valid) {
+                console.log("Access verified for: " + access.name);
+                return { loadedData: loadedData, accessCode: access.code };
+            } else {
+                // Show access code screen and wait
+                return AccessControl.showCodeScreen().then(function(codeResult) {
+                    return { loadedData: loadedData, accessCode: codeResult.code, needsClaim: codeResult.needsClaim };
+                });
+            }
+        });
+
+    }).then(function(context) {
+        var loadedData = context.loadedData;
+
+        // Step 4: Initialise question engine with fetched data
         QuestionEngine.init(loadedData);
 
-        // Step 3: Initialise IndexedDB
+        // Step 5: Initialise IndexedDB
         return DB.init().then(function() {
-            // Step 4: Merge any imported questions (legacy support)
+            // Step 6: Merge any imported questions (legacy support)
             return DB.getAll(STORE_IMPORTED);
         }).then(function(imported) {
             QuestionEngine.mergeImportedQuestions(imported);
 
-            // Step 5: Get schedule updates from IndexedDB
+            // Step 7: Get schedule updates from IndexedDB
             return DB.getAll(STORE_SCHEDULE_UPDATES);
         }).then(function(scheduleUpdates) {
-            // Step 6: Check config for ahead-of-schedule setting
+            // Step 8: Check config for ahead-of-schedule setting
             return DB.get(STORE_CONFIG, "main").then(function(config) {
                 var aheadOfSchedule = config ? !!config.aheadOfScheduleEnabled : false;
 
-                // Step 7: Compute unlocked problem types
+                // Step 9: Compute unlocked problem types
                 QuestionEngine.computeUnlocked(scheduleUpdates, aheadOfSchedule);
 
-                return config;
+                return { config: config, needsClaim: context.needsClaim };
             });
-        }).then(function(config) {
-            // Step 8: Initialise UI event listeners
+        }).then(function(result) {
+            var config = result.config;
+
+            // Step 10: Initialise UI event listeners
             UI.init();
             StudyUI.init();
 
-            // Step 9: Initialise Firebase sync (if available)
+            // Step 11: Initialise Firebase sync (if available)
             if (typeof FirebaseSync !== "undefined" && FirebaseSync.init) {
                 FirebaseSync.init(config).catch(function(err) {
                     console.warn("Firebase sync not available:", err.message);
                 });
             }
 
-            // Step 10: Show welcome screen or main app
+            // Step 12: Show welcome screen or main app
             if (!config) {
                 console.log("First run detected - showing welcome screen");
+                // Store needsClaim flag for the welcome screen handler
+                window._needsAccessClaim = result.needsClaim;
                 UI.showWelcomeScreen();
             } else {
                 console.log("Returning user: " + config.studentName);

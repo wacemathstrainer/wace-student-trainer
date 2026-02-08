@@ -16,21 +16,16 @@
 // not this config file.
 
 var FIREBASE_CONFIG = {
-    // ===== PASTE YOUR FIREBASE CONFIG HERE =====
-    // It will look something like this:
-    //
-    // apiKey: "AIzaSyD_EXAMPLE_KEY_HERE",
-    // authDomain: "wace-student-trainer.firebaseapp.com",
-    // projectId: "wace-student-trainer",
-    // storageBucket: "wace-student-trainer.appspot.com",
-    // messagingSenderId: "123456789",
-    // appId: "1:123456789:web:abcdef123456"
-    //
-    // ============================================
+    apiKey: "AIzaSyAG6ny75XJg2L-73G4qpV6_bP5yoxhhGiQ",
+    authDomain: "wace-student-trainer.firebaseapp.com",
+    projectId: "wace-student-trainer",
+    storageBucket: "wace-student-trainer.firebasestorage.app",
+    messagingSenderId: "3123704504",
+    appId: "1:3123704504:web:8c2cabd6ddf47b7c27fa4d"
 };
 
 // Class code for this deployment (students enter this to join)
 var CLASS_CODE = "METHODS2026P2";
 
 // Set to true once you have pasted your Firebase config above
-var FIREBASE_ENABLED = false;
+var FIREBASE_ENABLED = true;
