@@ -40,7 +40,17 @@ var AccessControl = {
         var db = firebase.firestore();
         return db.collection("accessCodes").doc(code.toUpperCase()).get()
             .then(function(doc) {
-                if (doc.exists && doc.data().claimed && doc.data().deviceToken === token) {
+                if (!doc.exists) {
+                    AccessControl.clearLocal();
+                    return { valid: false };
+                }
+                var data = doc.data();
+                // Check if code has been disabled by teacher
+                if (data.disabled) {
+                    AccessControl.clearLocal();
+                    return { valid: false, disabled: true };
+                }
+                if (data.claimed && data.deviceToken === token) {
                     return { valid: true, code: code, name: name || "" };
                 } else {
                     // Token no longer valid -- clear it
@@ -51,7 +61,6 @@ var AccessControl = {
             .catch(function(err) {
                 console.warn("AccessControl: Could not verify token online:", err.message);
                 // If offline but we have a local token, trust it
-                // (Firestore offline persistence will handle this too)
                 if (token && code) {
                     return { valid: true, code: code, name: name || "" };
                 }
@@ -81,6 +90,10 @@ var AccessControl = {
                 }
 
                 var data = doc.data();
+
+                if (data.disabled) {
+                    throw new Error("DISABLED");
+                }
 
                 if (data.claimed) {
                     // Already claimed -- check if it is this device (re-activation)
@@ -115,6 +128,9 @@ var AccessControl = {
         }).catch(function(err) {
             if (err.message === "INVALID_CODE") {
                 return { success: false, reason: "That code is not valid. Check with your teacher." };
+            }
+            if (err.message === "DISABLED") {
+                return { success: false, reason: "That code has been disabled. Contact your teacher." };
             }
             if (err.message === "ALREADY_CLAIMED") {
                 return { success: false, reason: "That code has already been used by another student." };
@@ -230,6 +246,9 @@ var AccessControl = {
                     return { valid: false, reason: "That code is not valid. Check with your teacher." };
                 }
                 var data = doc.data();
+                if (data.disabled) {
+                    return { valid: false, reason: "That code has been disabled. Contact your teacher." };
+                }
                 if (data.claimed) {
                     // Check if it is ours
                     var existingToken = localStorage.getItem(AccessControl.TOKEN_KEY);

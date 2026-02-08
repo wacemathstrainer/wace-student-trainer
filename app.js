@@ -781,6 +781,10 @@ var MasteryEngine = {
             }
 
             return DB.put(STORE_MASTERY, record).then(function() {
+                // Sync to Firebase
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.syncMastery) {
+                    FirebaseSync.syncMastery(problemType, record);
+                }
                 return record;
             });
         });
@@ -793,7 +797,12 @@ var MasteryEngine = {
         return MasteryEngine.getStatus(problemType).then(function(record) {
             record.guidedSolutionAccessCount =
                 (record.guidedSolutionAccessCount || 0) + 1;
-            return DB.put(STORE_MASTERY, record);
+            return DB.put(STORE_MASTERY, record).then(function() {
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.syncMastery) {
+                    FirebaseSync.syncMastery(problemType, record);
+                }
+                return record;
+            });
         });
     },
 
@@ -892,6 +901,9 @@ var MasteryEngine = {
                             if (daysDiff > 30) {
                                 r.status = "review";
                                 DB.put(STORE_MASTERY, r); // async update
+                                if (typeof FirebaseSync !== "undefined" && FirebaseSync.syncMastery) {
+                                    FirebaseSync.syncMastery(r.problemType, r);
+                                }
                                 result.reviewList.push(r);
                             }
                         }
@@ -1356,7 +1368,12 @@ var SessionEngine = {
                 }
             });
 
-            return DB.put(STORE_HISTORY, hist);
+            return DB.put(STORE_HISTORY, hist).then(function() {
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.syncQuestionHistory) {
+                    FirebaseSync.syncQuestionHistory(filename, hist);
+                }
+                return hist;
+            });
         });
         promises.push(historyPromise);
 
@@ -1457,6 +1474,10 @@ var SessionEngine = {
         SessionEngine.sessionData.newMasteries = SessionEngine.newMasteries.slice();
 
         return DB.put(STORE_SESSIONS, SessionEngine.sessionData).then(function() {
+            // Sync session to Firebase
+            if (typeof FirebaseSync !== "undefined" && FirebaseSync.syncSession) {
+                FirebaseSync.syncSession(SessionEngine.sessionData);
+            }
             console.log("Session saved: " +
                 SessionEngine.sessionData.questionsAttempted + " questions, " +
                 SessionEngine.sessionData.accuracyPercent + "% accuracy");
@@ -1799,12 +1820,18 @@ var UI = {
         claimPromise.then(function(ok) {
             if (!ok) return; // Claim failed -- stay on welcome screen
 
-            // Set up Firebase sync with student identity
+            // Set up Firebase sync with student identity and pull any existing data
+            var syncPromise = Promise.resolve();
             if (typeof FirebaseSync !== "undefined" && FirebaseSync.setStudent) {
-                FirebaseSync.setStudent(name, CLASS_CODE);
+                syncPromise = FirebaseSync.setStudent(name, CLASS_CODE)
+                    .catch(function(err) {
+                        console.warn("Firebase sync setup:", err.message);
+                    });
             }
 
-            return DB.put(STORE_CONFIG, config).then(function() {
+            return syncPromise.then(function() {
+                return DB.put(STORE_CONFIG, config);
+            }).then(function() {
                 console.log("Config saved for: " + name);
                 UI.showMainApp(config);
             }).catch(function(err) {
@@ -4257,6 +4284,19 @@ function initApp() {
             if (access.valid) {
                 console.log("Access verified for: " + access.name);
                 return { loadedData: loadedData, accessCode: access.code };
+            } else if (access.disabled) {
+                // Access has been revoked by teacher
+                document.body.innerHTML =
+                    "<div style=\"display:flex;justify-content:center;align-items:center;" +
+                    "min-height:100vh;background:linear-gradient(135deg,#4a6cf7 0%,#2948ff 100%);\">" +
+                    "<div style=\"background:white;border-radius:16px;padding:3em;max-width:500px;" +
+                    "text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.15);\">" +
+                    "<div style=\"font-size:3em;margin-bottom:0.3em;\">\uD83D\uDEAB</div>" +
+                    "<h1 style=\"margin-bottom:0.5em;\">Access Disabled</h1>" +
+                    "<p style=\"color:#666;line-height:1.6;\">Your access to the Study Trainer has been " +
+                    "disabled by your teacher. If you think this is a mistake, please contact them.</p>" +
+                    "</div></div>";
+                return Promise.reject(new Error("ACCESS_DISABLED"));
             } else {
                 // Show access code screen and wait
                 return AccessControl.showCodeScreen().then(function(codeResult) {
@@ -4337,6 +4377,7 @@ function initApp() {
             }, 12000);
         });
     }).catch(function(err) {
+        if (err.message === "ACCESS_DISABLED") return; // Already showing disabled message
         console.error("Initialisation failed:", err);
         // Show a basic error message
         document.body.innerHTML =

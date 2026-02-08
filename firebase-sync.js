@@ -78,7 +78,15 @@ var FirebaseSync = {
                     FirebaseSync.enabled = true;
                     console.log("FirebaseSync: Ready (student: " +
                         (FirebaseSync.studentId || "pending") + ")");
-                    resolve();
+
+                    // For returning users, pull their cloud data into IndexedDB
+                    if (FirebaseSync.studentId) {
+                        FirebaseSync.pullAll().then(function() {
+                            resolve();
+                        });
+                    } else {
+                        resolve();
+                    }
                 }).catch(function(err) {
                     console.warn("FirebaseSync: Auth failed:", err.message);
                     reject(err);
@@ -111,6 +119,9 @@ var FirebaseSync = {
             lastActive: new Date().toISOString(),
             firstSeen: firebase.firestore.FieldValue.serverTimestamp()
         }, true);
+
+        // Pull any existing cloud data (restores progress after device wipe)
+        return FirebaseSync.pullAll();
     },
 
     // ========================================================================
