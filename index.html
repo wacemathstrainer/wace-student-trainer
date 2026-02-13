@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WACE Methods Study Trainer</title>
-    <link rel="stylesheet" href="trainer_data/style.css">
+    <link rel="stylesheet" href="style.css">
     <!-- MathJax v3 - loaded from local bundle for offline use -->
     <script>
         window.MathJax = {
@@ -25,23 +25,12 @@
             }
         };
     </script>
-    <!--
-        MathJax offline bundle: place tex-mml-chtml.js in trainer_data/mathjax/
-        For development/testing, fall back to CDN if local file not found.
-    -->
-    <script id="mathjax-script" src="trainer_data/mathjax/tex-mml-chtml.js"></script>
+    <!-- MathJax loaded from CDN (cloud version) -->
+    <script id="mathjax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>
-        // Fallback: if local MathJax fails, try CDN (online only - for dev testing)
         document.getElementById('mathjax-script').onerror = function() {
-            console.warn('Local MathJax not found, trying CDN fallback...');
-            var s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
-            s.id = 'mathjax-cdn-fallback';
-            s.onerror = function() {
-                console.error('CDN MathJax also failed to load');
-                window._mathJaxFailed = true;
-            };
-            document.head.appendChild(s);
+            console.error('MathJax CDN failed to load');
+            window._mathJaxFailed = true;
         };
         // Safety net: if after 8 seconds MathJax still is not available,
         // try CDN one more time (covers file:// edge cases where onerror
@@ -523,12 +512,10 @@
     <input type="file" id="file-input-backup" accept=".json" style="display:none;">
 
     <!-- ============================================================ -->
-    <!-- SCRIPTS - loaded via script tags (file:// compatible)        -->
-    <!-- All paths relative to this HTML file, pointing into          -->
-    <!-- trainer_data/ subfolder.                                     -->
+    <!-- SCRIPTS - loaded from repo root (cloud version)              -->
     <!-- ============================================================ -->
-    <script src="trainer_data/data_bundle.js"></script>
-    <script src="trainer_data/schedule.js"></script>
-    <script src="trainer_data/app.js"></script>
+    <script src="data_bundle.js"></script>
+    <script src="schedule.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
