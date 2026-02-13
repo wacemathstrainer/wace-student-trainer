@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WACE Methods Study Trainer</title>
     <link rel="stylesheet" href="style.css">
-    <!-- MathJax v3 - loaded from local bundle for offline use -->
+    <!-- MathJax v3 - loaded from CDN -->
     <script>
         window.MathJax = {
             tex: {
@@ -25,9 +25,8 @@
             }
         };
     </script>
-    <!-- MathJax v3 - loaded from CDN -->
     <script id="mathjax-script" async
-        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+            src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
     </script>
 </head>
 <body>
@@ -41,19 +40,21 @@
             <p class="welcome-subtitle">Year 12 Mathematics Methods</p>
             <div class="welcome-form">
                 <label for="access-code-input">Enter your access code</label>
-                <input type="text" id="access-code-input" placeholder="e.g. METH-K7X3-P9R2"
-                       maxlength="20" autocomplete="off" style="text-transform:uppercase; letter-spacing:2px; text-align:center; font-size:1.2em;">
+                <input type="text" id="access-code-input"
+                       placeholder="e.g. METH-K7X3-P9R2"
+                       maxlength="20" autocomplete="off"
+                       style="text-transform:uppercase;">
                 <p class="welcome-hint">Your teacher will give you a unique code.</p>
-                <div id="access-code-error" style="color:#e74c3c; font-weight:600; margin:8px 0; display:none;"></div>
+                <div id="access-code-error" style="color:#dc2626;font-size:0.85rem;min-height:1.2em;margin:6px 0;"></div>
                 <button id="access-code-btn" class="btn btn-primary btn-large" disabled>
-                    Verify Code
+                    Continue
                 </button>
             </div>
         </div>
     </div>
 
     <!-- ============================================================ -->
-    <!-- WELCOME SCREEN (first-run only, after code verified)         -->
+    <!-- WELCOME SCREEN (first-run only)                              -->
     <!-- ============================================================ -->
     <div id="welcome-screen" class="screen" style="display:none;">
         <div class="welcome-container">
@@ -477,17 +478,16 @@
     <input type="file" id="file-input-backup" accept=".json" style="display:none;">
 
     <!-- ============================================================ -->
-    <!-- SCRIPTS                                                      -->
-    <!-- Data is loaded via fetch() in app.js (no more script-tag     -->
-    <!-- globals needed -- we are on https:// now, not file://)       -->
+    <!-- SCRIPTS (cloud version)                                      -->
+    <!-- Data is loaded via fetch() in app.js -- no script-tag globals -->
     <!-- ============================================================ -->
 
-    <!-- Firebase SDK (modular, from CDN) -->
+    <!-- Firebase SDK (compat mode, from CDN) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
-    <!-- App configuration and code -->
+    <!-- App configuration and modules -->
     <script src="firebase-config.js"></script>
     <script src="access-codes.js"></script>
     <script src="firebase-sync.js"></script>

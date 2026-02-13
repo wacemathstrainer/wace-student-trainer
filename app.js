@@ -43,11 +43,11 @@ var APP_VERSION = "2.0.0";
 var DB_NAME = "WACEStudentTrainer";
 var DB_VERSION = 1;
 
-// Base path for all data files (relative to the HTML file in the root folder).
-// The HTML file lives in the root; everything else is in trainer_data/.
-var DATA_PATH = "trainer_data/";
-var DIAGRAM_PATH = DATA_PATH + "diagrams/";
-var PRACTICE_DIAGRAM_PATH = DATA_PATH + "practice_diagrams/";
+// Base path for all data files (relative to the HTML file).
+// In the restructured project, all files are flat in system_trainer/.
+var DATA_PATH = "";
+var DIAGRAM_PATH = "diagrams/";
+var PRACTICE_DIAGRAM_PATH = "practice_diagrams/";
 
 // Object store names
 var STORE_CONFIG = "config";
@@ -195,6 +195,72 @@ var DB = {
             request.onsuccess = function() { resolve(); };
             request.onerror = function() { reject(request.error); };
         });
+    },
+
+    /**
+     * Emergency reset: delete the entire database and reload.
+     * Used when IndexedDB is corrupted beyond repair.
+     */
+    emergencyReset: function() {
+        if (DB.db) DB.db.close();
+        var request = indexedDB.deleteDatabase(DB_NAME);
+        request.onsuccess = function() {
+            console.log("Database deleted successfully. Reloading...");
+            window.location.reload();
+        };
+        request.onerror = function() {
+            console.error("Failed to delete database.");
+            alert("Could not reset the database. Try clearing your browser data manually.");
+        };
+    }
+};
+
+
+// ============================================================================
+// DATA LOADER (fetch-based JSON loading for cloud hosting)
+// On https://, fetch() works -- no more file:// script-tag workarounds.
+// ============================================================================
+var DataLoader = {
+    questionsData: null,
+    taxonomyData: null,
+    questionIndex: null,
+    scheduleData: null,
+
+    /**
+     * Fetch all data files in parallel. Returns a Promise that resolves
+     * when all data is loaded (or rejects if any critical file fails).
+     */
+    loadAll: function() {
+        return Promise.all([
+            DataLoader._fetchJSON("data/questions.json"),
+            DataLoader._fetchJSON("data/taxonomy.json"),
+            DataLoader._fetchJSON("data/question_index.json"),
+            DataLoader._fetchJSON("data/schedule.json")
+        ]).then(function(results) {
+            DataLoader.questionsData = results[0] || {};
+            DataLoader.taxonomyData = results[1] || {};
+            DataLoader.questionIndex = results[2] || {};
+            DataLoader.scheduleData = results[3] || {};
+            console.log("DataLoader: All data loaded (" +
+                Object.keys(DataLoader.questionsData).length + " questions, " +
+                Object.keys(DataLoader.taxonomyData).length + " topics)");
+            return DataLoader;
+        });
+    },
+
+    /**
+     * Fetch a single JSON file with error handling.
+     */
+    _fetchJSON: function(url) {
+        return fetch(url).then(function(response) {
+            if (!response.ok) {
+                throw new Error("HTTP " + response.status + " loading " + url);
+            }
+            return response.json();
+        }).catch(function(err) {
+            console.warn("DataLoader: Failed to load " + url + " -- " + err.message);
+            return null;
+        });
     }
 };
 
@@ -207,29 +273,44 @@ var QuestionEngine = {
     allQuestions: {},
     taxonomyData: {},
     questionIndex: {},
+    scheduleData: {},
     unlockedProblemTypes: [],
     allProblemTypes: [],
 
     /**
-     * Initialise the engine by merging data bundle + imported questions,
-     * and computing the set of unlocked problem types from the schedule.
+     * Initialise the engine with data from DataLoader (cloud) or
+     * script-tag globals (offline fallback).
      */
-    init: function() {
-        // Load base data from script-tag globals
-        if (typeof QUESTIONS_DATA !== "undefined") {
-            QuestionEngine.allQuestions = Object.assign({}, QUESTIONS_DATA);
+    init: function(loadedData) {
+        // Cloud mode: data passed from DataLoader
+        if (loadedData && loadedData.questionsData) {
+            QuestionEngine.allQuestions = Object.assign({}, loadedData.questionsData);
+            QuestionEngine.taxonomyData = loadedData.taxonomyData || {};
+            QuestionEngine.questionIndex = loadedData.questionIndex || {};
+            QuestionEngine.scheduleData = loadedData.scheduleData || {};
             console.log("QuestionEngine: Loaded " +
-                Object.keys(QUESTIONS_DATA).length + " questions from data bundle");
-        } else {
-            console.warn("QuestionEngine: QUESTIONS_DATA not found (data_bundle.js missing?)");
-            QuestionEngine.allQuestions = {};
+                Object.keys(QuestionEngine.allQuestions).length +
+                " questions from DataLoader");
         }
-
-        if (typeof TAXONOMY_DATA !== "undefined") {
-            QuestionEngine.taxonomyData = TAXONOMY_DATA;
-        }
-        if (typeof QUESTION_INDEX !== "undefined") {
-            QuestionEngine.questionIndex = QUESTION_INDEX;
+        // Offline fallback: read from script-tag globals
+        else {
+            if (typeof QUESTIONS_DATA !== "undefined") {
+                QuestionEngine.allQuestions = Object.assign({}, QUESTIONS_DATA);
+                console.log("QuestionEngine: Loaded " +
+                    Object.keys(QUESTIONS_DATA).length + " questions from data bundle");
+            } else {
+                console.warn("QuestionEngine: No question data found");
+                QuestionEngine.allQuestions = {};
+            }
+            if (typeof TAXONOMY_DATA !== "undefined") {
+                QuestionEngine.taxonomyData = TAXONOMY_DATA;
+            }
+            if (typeof QUESTION_INDEX !== "undefined") {
+                QuestionEngine.questionIndex = QUESTION_INDEX;
+            }
+            if (typeof TAUGHT_SCHEDULE !== "undefined") {
+                QuestionEngine.scheduleData = TAUGHT_SCHEDULE;
+            }
         }
 
         // Extract all known problem types from questions
@@ -265,9 +346,10 @@ var QuestionEngine = {
         today.setHours(0, 0, 0, 0);
         var unlocked = {};
 
-        // Base schedule from schedule.js
-        if (typeof TAUGHT_SCHEDULE !== "undefined" && TAUGHT_SCHEDULE.schedule) {
-            TAUGHT_SCHEDULE.schedule.forEach(function(entry) {
+        // Base schedule
+        var sched = QuestionEngine.scheduleData;
+        if (sched && sched.schedule) {
+            sched.schedule.forEach(function(entry) {
                 var entryDate = new Date(entry.date + "T00:00:00");
                 if (aheadOfSchedule || entryDate <= today) {
                     (entry.problemTypes || []).forEach(function(pt) {
@@ -387,7 +469,8 @@ var QuestionEngine = {
      * Get the schedule info for display purposes.
      */
     getScheduleInfo: function() {
-        if (typeof TAUGHT_SCHEDULE === "undefined") {
+        var sched = QuestionEngine.scheduleData;
+        if (!sched || !sched.schedule) {
             return {
                 className: "Unknown Class",
                 teacherName: "Unknown",
@@ -399,21 +482,21 @@ var QuestionEngine = {
         today.setHours(0, 0, 0, 0);
         var nextUnlock = null;
 
-        if (TAUGHT_SCHEDULE.schedule) {
-            for (var i = 0; i < TAUGHT_SCHEDULE.schedule.length; i++) {
-                var d = new Date(TAUGHT_SCHEDULE.schedule[i].date + "T00:00:00");
+        if (sched.schedule) {
+            for (var i = 0; i < sched.schedule.length; i++) {
+                var d = new Date(sched.schedule[i].date + "T00:00:00");
                 if (d > today) {
-                    nextUnlock = TAUGHT_SCHEDULE.schedule[i];
+                    nextUnlock = sched.schedule[i];
                     break;
                 }
             }
         }
 
         return {
-            className: TAUGHT_SCHEDULE.className || "Unknown Class",
-            teacherName: TAUGHT_SCHEDULE.teacherName || "Unknown",
-            totalEntries: (TAUGHT_SCHEDULE.schedule || []).length,
-            allowAheadOfSchedule: !!TAUGHT_SCHEDULE.allowAheadOfSchedule,
+            className: sched.className || "Unknown Class",
+            teacherName: sched.teacherName || "Unknown",
+            totalEntries: (sched.schedule || []).length,
+            allowAheadOfSchedule: !!sched.allowAheadOfSchedule,
             nextUnlock: nextUnlock
         };
     }
@@ -711,6 +794,10 @@ var MasteryEngine = {
             }
 
             return DB.put(STORE_MASTERY, record).then(function() {
+                // Sync to cloud
+                if (typeof FirebaseSync !== "undefined") {
+                    FirebaseSync.saveMastery(problemType, record);
+                }
                 return record;
             });
         });
@@ -723,6 +810,10 @@ var MasteryEngine = {
         return MasteryEngine.getStatus(problemType).then(function(record) {
             record.guidedSolutionAccessCount =
                 (record.guidedSolutionAccessCount || 0) + 1;
+            // Sync to cloud
+            if (typeof FirebaseSync !== "undefined") {
+                FirebaseSync.saveMastery(problemType, record);
+            }
             return DB.put(STORE_MASTERY, record);
         });
     },
@@ -1286,7 +1377,12 @@ var SessionEngine = {
                 }
             });
 
-            return DB.put(STORE_HISTORY, hist);
+            return DB.put(STORE_HISTORY, hist).then(function() {
+                // Sync to cloud
+                if (typeof FirebaseSync !== "undefined") {
+                    FirebaseSync.saveQuestionHistory(filename, hist);
+                }
+            });
         });
         promises.push(historyPromise);
 
@@ -1390,6 +1486,10 @@ var SessionEngine = {
             console.log("Session saved: " +
                 SessionEngine.sessionData.questionsAttempted + " questions, " +
                 SessionEngine.sessionData.accuracyPercent + "% accuracy");
+            // Sync to cloud
+            if (typeof FirebaseSync !== "undefined") {
+                FirebaseSync.saveSession(SessionEngine.sessionData);
+            }
             return SessionEngine.sessionData;
         });
     },
@@ -1437,6 +1537,7 @@ var SessionEngine = {
      */
     _applyTopicFilter: function(topicFilter) {
         // Get all problem types that match the topic filter
+        // (matches against topic, subtopic, conceptCategory, or problemType name)
         var matchingPTs = {};
         var keys = Object.keys(QuestionEngine.allQuestions);
         keys.forEach(function(k) {
@@ -1445,7 +1546,8 @@ var SessionEngine = {
             q.parts.forEach(function(part) {
                 if (part.topic === topicFilter ||
                     part.subtopic === topicFilter ||
-                    part.conceptCategory === topicFilter) {
+                    part.conceptCategory === topicFilter ||
+                    part.problemType === topicFilter) {
                     if (part.problemType) {
                         matchingPTs[part.problemType] = true;
                     }
@@ -1608,18 +1710,30 @@ var UI = {
             });
         });
 
-        // Import/export buttons (stubs - full implementation in Phase S5)
+        // Import/export buttons (Phase S5)
         document.getElementById("btn-import-update").addEventListener("click", function() {
             document.getElementById("file-input-update").click();
         });
+        document.getElementById("file-input-update").addEventListener("change", function(e) {
+            if (e.target.files && e.target.files[0]) {
+                ExportImport.importUpdate(e.target.files[0]);
+                e.target.value = ""; // reset so same file can be re-imported
+            }
+        });
         document.getElementById("btn-export-progress").addEventListener("click", function() {
-            alert("Progress export coming in Phase S5.");
+            ExportImport.exportProgressReport();
         });
         document.getElementById("btn-export-backup").addEventListener("click", function() {
-            alert("Full backup export coming in Phase S5.");
+            ExportImport.exportFullBackup();
         });
         document.getElementById("btn-import-backup").addEventListener("click", function() {
             document.getElementById("file-input-backup").click();
+        });
+        document.getElementById("file-input-backup").addEventListener("change", function(e) {
+            if (e.target.files && e.target.files[0]) {
+                ExportImport.importBackup(e.target.files[0]);
+                e.target.value = "";
+            }
         });
         document.getElementById("btn-clear-diagram-cache").addEventListener("click", function() {
             if (confirm("Clear cached diagram images from imported updates?\n\n" +
@@ -1628,6 +1742,18 @@ var UI = {
                 UI.clearDiagramCache();
             }
         });
+
+        // Emergency reset button
+        var resetBtn = document.getElementById("btn-emergency-reset");
+        if (resetBtn) {
+            resetBtn.addEventListener("click", function() {
+                if (confirm("WARNING: This will permanently erase ALL your progress, " +
+                    "mastery records, session history, and settings.\n\n" +
+                    "This cannot be undone. Are you sure?")) {
+                    DB.emergencyReset();
+                }
+            });
+        }
     },
 
     /**
@@ -1649,6 +1775,10 @@ var UI = {
         // Trigger tab-specific refresh
         if (tabName === "study") {
             UI.refreshStudyTab();
+        } else if (tabName === "revise") {
+            ReviseUI.refresh();
+        } else if (tabName === "print") {
+            PrintUI.refresh();
         } else if (tabName === "dashboard") {
             DashboardUI.refresh();
         }
@@ -1712,6 +1842,17 @@ var UI = {
 
         DB.put(STORE_CONFIG, config).then(function() {
             console.log("Config saved for: " + name);
+
+            // Claim access code if access control is active
+            if (typeof AccessControl !== "undefined" && AccessControl.completeClaim) {
+                AccessControl.completeClaim(name);
+            }
+
+            // Sync profile to cloud
+            if (typeof FirebaseSync !== "undefined") {
+                FirebaseSync.saveProfile(config);
+            }
+
             UI.showMainApp(config);
         }).catch(function(err) {
             console.error("Failed to save config:", err);
@@ -2003,6 +2144,7 @@ var StudyUI = {
     assessedParts: 0,
     totalParts: 0,
     _nextReminderMinutes: 30,   // first reminder at 30 min, then +20 each time
+    _activeAreaId: "question-area",  // overridden to "revise-question-area" for revision mode
 
     /**
      * Initialise study UI event listeners.
@@ -2026,6 +2168,9 @@ var StudyUI = {
      * Start a study session using the session config panel values.
      */
     startSession: function() {
+        // Ensure we're targeting the study tab's question area
+        StudyUI._activeAreaId = "question-area";
+
         // Read time input and convert to question count
         var timeInput = document.getElementById("session-time-input");
         var minutes = timeInput ? parseInt(timeInput.value, 10) : 15;
@@ -2049,9 +2194,29 @@ var StudyUI = {
         // Estimate question count from time: ~1 minute per mark
         var goal = StudyUI.estimateQuestions(minutes, sectionFilter);
 
+        // Edge case: check if any questions are available at all
+        var availableKeys = Object.keys(QuestionEngine.getAvailableQuestions());
+        if (availableKeys.length === 0) {
+            var questionArea = document.getElementById(StudyUI._activeAreaId);
+            if (questionArea) {
+                questionArea.style.display = "block";
+                questionArea.innerHTML =
+                    '<div class="empty-session-msg">' +
+                    '<div class="empty-session-icon">' + SYMBOLS.LOCK + '</div>' +
+                    '<h3>No Questions Available Yet</h3>' +
+                    '<p>No problem types have been unlocked by the schedule. ' +
+                    'Check back later or ask your teacher for an update file.</p>' +
+                    '<button class="btn btn-primary" ' +
+                    'onclick="StudyUI.returnToHome()">Back</button></div>';
+                var startScreen = document.querySelector(".study-start-screen");
+                if (startScreen) startScreen.style.display = "none";
+            }
+            return;
+        }
+
         // Hide start screen, show question area
         var startScreen = document.querySelector(".study-start-screen");
-        var questionArea = document.getElementById("question-area");
+        var questionArea = document.getElementById(StudyUI._activeAreaId);
         if (startScreen) startScreen.style.display = "none";
         if (questionArea) questionArea.style.display = "block";
 
@@ -2174,7 +2339,7 @@ var StudyUI = {
         StudyUI.totalParts = questionInfo.questionData.parts ?
             questionInfo.questionData.parts.length : 0;
 
-        var area = document.getElementById("question-area");
+        var area = document.getElementById(StudyUI._activeAreaId);
         if (!area) return;
 
         var q = questionInfo.questionData;
@@ -2350,7 +2515,7 @@ var StudyUI = {
             '</div>';
 
         // Insert at top of question area
-        var area = document.getElementById("question-area");
+        var area = document.getElementById(StudyUI._activeAreaId);
         if (area) {
             area.insertBefore(reminder, area.firstChild);
             var dismissBtn = document.getElementById("reminder-dismiss-btn");
@@ -2607,7 +2772,6 @@ var StudyUI = {
                 resultArea.style.display = "block";
             }
             StudyUI._highlightSolutionLines(partIdx, -1); // all green
-            StudyUI._highlightMarkingCriteria(partIdx, []); // all passed
             StudyUI._makeLinesClickable(partIdx); // allow clicking to switch to error
             StudyUI._checkAllAssessed();
 
@@ -2627,7 +2791,6 @@ var StudyUI = {
                 resultArea.style.display = "block";
             }
             StudyUI._highlightSolutionLines(partIdx, -1);
-            StudyUI._highlightMarkingCriteria(partIdx, []); // all passed
             StudyUI._makeLinesClickable(partIdx);
             StudyUI._checkAllAssessed();
 
@@ -2748,23 +2911,10 @@ var StudyUI = {
         var rows = markingContainer.querySelectorAll(".marking-row");
         rows.forEach(function(el) {
             var idx = parseInt(el.getAttribute("data-mark-idx"), 10);
-            var badge = el.querySelector(".mark-awarded");
             if (failedIndices.indexOf(idx) !== -1) {
                 el.classList.add("mark-failed");
-                if (badge) {
-                    if (!badge.getAttribute("data-original")) {
-                        badge.setAttribute("data-original", badge.textContent);
-                    }
-                    badge.textContent = SYMBOLS.CROSS;
-                }
             } else {
                 el.classList.add("mark-passed");
-                if (badge) {
-                    if (!badge.getAttribute("data-original")) {
-                        badge.setAttribute("data-original", badge.textContent);
-                    }
-                    badge.textContent = SYMBOLS.CHECK;
-                }
             }
         });
     },
@@ -2808,16 +2958,12 @@ var StudyUI = {
             });
         }
 
-        // Clear marking criteria highlights and restore badge content
+        // Clear marking criteria highlights
         var markingContainer = document.getElementById("marking-" + partIdx);
         if (markingContainer) {
             var rows = markingContainer.querySelectorAll(".marking-row");
             rows.forEach(function(el) {
                 el.classList.remove("mark-passed", "mark-failed");
-                var badge = el.querySelector(".mark-awarded");
-                if (badge && badge.getAttribute("data-original")) {
-                    badge.textContent = badge.getAttribute("data-original");
-                }
             });
         }
 
@@ -2867,10 +3013,6 @@ var StudyUI = {
         if (markingContainer) {
             markingContainer.querySelectorAll(".marking-row").forEach(function(el) {
                 el.classList.remove("mark-passed", "mark-failed");
-                var badge = el.querySelector(".mark-awarded");
-                if (badge && badge.getAttribute("data-original")) {
-                    badge.textContent = badge.getAttribute("data-original");
-                }
             });
         }
 
@@ -3096,7 +3238,7 @@ var StudyUI = {
         StudyUI._recordResultsIfNeeded().then(function() {
             return SessionEngine.end();
         }).then(function(sessionData) {
-            var area = document.getElementById("question-area");
+            var area = document.getElementById(StudyUI._activeAreaId);
             if (!area) return;
 
             var sd = sessionData || SessionEngine.sessionData;
@@ -3171,6 +3313,9 @@ var StudyUI = {
             html += '</div>';
             area.innerHTML = html;
 
+            // Fire celebrations for milestones
+            Celebrations.checkMilestones(sd);
+
             // Bind buttons
             var newSessionBtn = document.getElementById("summary-new-session");
             if (newSessionBtn) {
@@ -3191,12 +3336,26 @@ var StudyUI = {
      * Return to the study tab home screen.
      */
     returnToHome: function() {
-        var startScreen = document.querySelector(".study-start-screen");
-        var questionArea = document.getElementById("question-area");
-        if (startScreen) startScreen.style.display = "block";
-        if (questionArea) {
-            questionArea.style.display = "none";
-            questionArea.innerHTML = "";
+        if (StudyUI._activeAreaId === "revise-question-area") {
+            // Returning from a revision session -- go back to topic tree
+            var reviseHome = document.getElementById("revise-home");
+            var reviseArea = document.getElementById("revise-question-area");
+            if (reviseHome) reviseHome.style.display = "block";
+            if (reviseArea) {
+                reviseArea.style.display = "none";
+                reviseArea.innerHTML = "";
+            }
+            StudyUI._activeAreaId = "question-area"; // reset
+            ReviseUI.refresh();
+        } else {
+            // Normal study session -- go back to study start screen
+            var startScreen = document.querySelector(".study-start-screen");
+            var questionArea = document.getElementById(StudyUI._activeAreaId);
+            if (startScreen) startScreen.style.display = "block";
+            if (questionArea) {
+                questionArea.style.display = "none";
+                questionArea.innerHTML = "";
+            }
         }
         UI.refreshStudyTab();
         window.scrollTo(0, 0);
@@ -3239,6 +3398,421 @@ var StudyUI = {
      * @private
      */
     _escapeHtml: function(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+};
+
+
+// ============================================================================
+// REVISE UI MODULE (Phase S4)
+// Topic tree display, revision session launching, dashboard integration.
+// ============================================================================
+var ReviseUI = {
+
+    /**
+     * Refresh the topic tree on the Revise tab.
+     * Builds a collapsible tree from TAXONOMY_DATA with mastery indicators.
+     */
+    refresh: function() {
+        var container = document.getElementById("topic-tree-container");
+        var emptyHint = document.getElementById("revise-empty-hint");
+        if (!container) return;
+
+        var taxonomy = QuestionEngine.taxonomyData;
+        if (!taxonomy || Object.keys(taxonomy).length === 0) {
+            container.innerHTML = "";
+            if (emptyHint) emptyHint.style.display = "block";
+            return;
+        }
+        if (emptyHint) emptyHint.style.display = "none";
+
+        // Load mastery data to show indicators
+        DB.getAll(STORE_MASTERY).then(function(records) {
+            var masteryMap = {};
+            records.forEach(function(r) { masteryMap[r.problemType] = r; });
+
+            var unlockedSet = {};
+            QuestionEngine.unlockedProblemTypes.forEach(function(pt) {
+                unlockedSet[pt] = true;
+            });
+
+            var html = '<div class="topic-tree">';
+
+            var topics = Object.keys(taxonomy);
+            topics.forEach(function(topic) {
+                // Check if any problem types in this topic are unlocked
+                var topicPTs = ReviseUI._getProblemTypesForNode(taxonomy, topic, null, null);
+                var topicUnlocked = topicPTs.filter(function(pt) { return unlockedSet[pt]; });
+                if (topicUnlocked.length === 0) return;
+
+                var topicStats = ReviseUI._computeNodeStats(topicUnlocked, masteryMap);
+
+                html += '<div class="tt-topic">';
+                html += '<div class="tt-node tt-node-topic" data-filter="' +
+                    ReviseUI._esc(topic) + '" data-level="topic">';
+                html += '<span class="tt-expand-icon">' + SYMBOLS.ARROW_RIGHT + '</span>';
+                html += '<span class="tt-indicator ' + topicStats.cssClass + '"></span>';
+                html += '<span class="tt-label">' + ReviseUI._esc(topic) + '</span>';
+                html += '<span class="tt-meta">' + topicStats.summary + '</span>';
+                html += '<button class="btn btn-sm tt-revise-btn" data-filter="' +
+                    ReviseUI._esc(topic) + '" data-level="topic">Revise</button>';
+                html += '</div>';
+
+                // Subtopics (collapsed by default)
+                html += '<div class="tt-children" style="display:none;">';
+                var subtopics = Object.keys(taxonomy[topic]);
+                subtopics.forEach(function(subtopic) {
+                    var subPTs = ReviseUI._getProblemTypesForNode(taxonomy, topic, subtopic, null);
+                    var subUnlocked = subPTs.filter(function(pt) { return unlockedSet[pt]; });
+                    if (subUnlocked.length === 0) return;
+
+                    var subStats = ReviseUI._computeNodeStats(subUnlocked, masteryMap);
+
+                    html += '<div class="tt-subtopic">';
+                    html += '<div class="tt-node tt-node-subtopic" data-filter="' +
+                        ReviseUI._esc(subtopic) + '" data-level="subtopic">';
+                    html += '<span class="tt-expand-icon">' + SYMBOLS.ARROW_RIGHT + '</span>';
+                    html += '<span class="tt-indicator ' + subStats.cssClass + '"></span>';
+                    html += '<span class="tt-label">' + ReviseUI._esc(subtopic) + '</span>';
+                    html += '<span class="tt-meta">' + subStats.summary + '</span>';
+                    html += '<button class="btn btn-sm tt-revise-btn" data-filter="' +
+                        ReviseUI._esc(subtopic) + '" data-level="subtopic">Revise</button>';
+                    html += '</div>';
+
+                    // Concept categories
+                    html += '<div class="tt-children" style="display:none;">';
+                    var concepts = Object.keys(taxonomy[topic][subtopic]);
+                    concepts.forEach(function(concept) {
+                        var cPTs = taxonomy[topic][subtopic][concept] || [];
+                        var cUnlocked = cPTs.filter(function(pt) { return unlockedSet[pt]; });
+                        if (cUnlocked.length === 0) return;
+
+                        var cStats = ReviseUI._computeNodeStats(cUnlocked, masteryMap);
+
+                        html += '<div class="tt-concept">';
+                        html += '<div class="tt-node tt-node-concept" data-filter="' +
+                            ReviseUI._esc(concept) + '" data-level="concept">';
+                        html += '<span class="tt-expand-icon tt-leaf"></span>';
+                        html += '<span class="tt-indicator ' + cStats.cssClass + '"></span>';
+                        html += '<span class="tt-label">' + ReviseUI._esc(concept) + '</span>';
+                        html += '<span class="tt-meta">' + cStats.summary + '</span>';
+                        html += '<button class="btn btn-sm tt-revise-btn" data-filter="' +
+                            ReviseUI._esc(concept) + '" data-level="concept">Revise</button>';
+                        html += '</div>';
+
+                        // Problem types listed inline
+                        if (cUnlocked.length > 0) {
+                            html += '<div class="tt-pt-list">';
+                            cUnlocked.forEach(function(pt) {
+                                var rec = masteryMap[pt];
+                                var status = rec ? rec.status : "new";
+                                var icon = ReviseUI._statusIcon(status);
+                                html += '<span class="tt-pt-item tt-pt-' + status + '" title="' +
+                                    ReviseUI._esc(pt) + ' (' + status + ')">' +
+                                    icon + ' ' + ReviseUI._esc(pt) + '</span>';
+                            });
+                            html += '</div>';
+                        }
+
+                        html += '</div>'; // tt-concept
+                    });
+                    html += '</div>'; // tt-children (concepts)
+                    html += '</div>'; // tt-subtopic
+                });
+                html += '</div>'; // tt-children (subtopics)
+                html += '</div>'; // tt-topic
+            });
+
+            html += '</div>'; // topic-tree
+
+            container.innerHTML = html;
+            ReviseUI._bindTreeEvents(container);
+        });
+    },
+
+    /**
+     * Start a revision session for a given filter.
+     *
+     * @param {string} filter - topic, subtopic, or concept name
+     * @param {string} level - "topic", "subtopic", or "concept"
+     */
+    startRevision: function(filter, level) {
+        // Switch the question area to the revise tab
+        StudyUI._activeAreaId = "revise-question-area";
+
+        var reviseHome = document.getElementById("revise-home");
+        var reviseArea = document.getElementById("revise-question-area");
+        if (reviseHome) reviseHome.style.display = "none";
+        if (reviseArea) reviseArea.style.display = "block";
+
+        // Use a reasonable default goal
+        var goal = 10;
+
+        SessionEngine.start("revision", filter, {
+            goal: goal,
+            sectionFilter: "mix",
+            wrongListOnly: false
+        }).then(function() {
+            // Check if there are any questions available
+            var totalAvailable = SessionEngine.wrongList.length +
+                SessionEngine.freshList.length +
+                SessionEngine.improvingList.length +
+                SessionEngine.reviewList.length +
+                SessionEngine.confidenceList.length;
+
+            if (totalAvailable === 0) {
+                reviseArea.innerHTML =
+                    '<div class="revise-no-questions">' +
+                    '<h3>No questions available</h3>' +
+                    '<p>There are no questions available for "' +
+                    StudyUI._escapeHtml(filter) +
+                    '" right now. You may have mastered everything in this area!</p>' +
+                    '<button class="btn btn-primary" id="revise-back-btn">' +
+                    'Back to Topics</button>' +
+                    '</div>';
+                document.getElementById("revise-back-btn").addEventListener("click", function() {
+                    StudyUI.returnToHome();
+                });
+                return;
+            }
+
+            StudyUI._nextReminderMinutes = 30;
+            StudyUI.loadNextQuestion();
+        });
+    },
+
+    /**
+     * Navigate to the Revise tab and start revision for a specific filter.
+     * Called from Dashboard "Revise this" buttons.
+     *
+     * @param {string} filter - topic, subtopic, concept, or problem type name
+     */
+    navigateAndRevise: function(filter) {
+        // Determine the level by looking up the filter in taxonomy
+        var level = ReviseUI._detectLevel(filter);
+        UI.showTab("revise");
+
+        // Short delay to let the tab render, then start
+        setTimeout(function() {
+            ReviseUI.startRevision(filter, level);
+        }, 100);
+    },
+
+    /**
+     * Navigate to the Revise tab and start revision for weak areas only.
+     * Called from Dashboard "Revise All Weak Areas" button.
+     */
+    reviseAllWeak: function() {
+        StudyUI._activeAreaId = "revise-question-area";
+        UI.showTab("revise");
+
+        var reviseHome = document.getElementById("revise-home");
+        var reviseArea = document.getElementById("revise-question-area");
+        if (reviseHome) reviseHome.style.display = "none";
+        if (reviseArea) reviseArea.style.display = "block";
+
+        SessionEngine.start("revision", null, {
+            goal: 10,
+            sectionFilter: "mix",
+            wrongListOnly: true
+        }).then(function() {
+            if (SessionEngine.wrongList.length === 0) {
+                reviseArea.innerHTML =
+                    '<div class="revise-no-questions">' +
+                    '<h3>No weak areas</h3>' +
+                    '<p>Great news! You don\'t have any problem types marked as struggling.</p>' +
+                    '<button class="btn btn-primary" id="revise-back-btn">' +
+                    'Back to Topics</button>' +
+                    '</div>';
+                document.getElementById("revise-back-btn").addEventListener("click", function() {
+                    StudyUI.returnToHome();
+                });
+                return;
+            }
+            StudyUI._nextReminderMinutes = 30;
+            StudyUI.loadNextQuestion();
+        });
+    },
+
+    // ---- PRIVATE HELPERS ----
+
+    /**
+     * Get all problem types under a given taxonomy node.
+     * @private
+     */
+    _getProblemTypesForNode: function(taxonomy, topic, subtopic, concept) {
+        var pts = [];
+        if (concept && topic && subtopic) {
+            return (taxonomy[topic] && taxonomy[topic][subtopic] &&
+                taxonomy[topic][subtopic][concept]) || [];
+        }
+        if (subtopic && topic) {
+            var concepts = taxonomy[topic] && taxonomy[topic][subtopic];
+            if (concepts) {
+                Object.keys(concepts).forEach(function(c) {
+                    pts = pts.concat(concepts[c] || []);
+                });
+            }
+            return pts;
+        }
+        if (topic) {
+            var subtopics = taxonomy[topic];
+            if (subtopics) {
+                Object.keys(subtopics).forEach(function(s) {
+                    Object.keys(subtopics[s]).forEach(function(c) {
+                        pts = pts.concat(subtopics[s][c] || []);
+                    });
+                });
+            }
+            return pts;
+        }
+        return pts;
+    },
+
+    /**
+     * Compute stats (mastery counts, accuracy) for a list of problem types.
+     * @private
+     */
+    _computeNodeStats: function(problemTypes, masteryMap) {
+        var mastered = 0;
+        var struggling = 0;
+        var improving = 0;
+        var newCount = 0;
+        var total = problemTypes.length;
+        var correct = 0;
+        var attempts = 0;
+
+        problemTypes.forEach(function(pt) {
+            var rec = masteryMap[pt];
+            if (!rec) {
+                newCount++;
+            } else {
+                switch (rec.status) {
+                    case "mastered": mastered++; break;
+                    case "struggling": struggling++; break;
+                    case "improving": improving++; break;
+                    default: newCount++;
+                }
+                correct += (rec.correctAttempts || 0);
+                attempts += (rec.totalAttempts || 0);
+            }
+        });
+
+        var cssClass;
+        if (mastered === total && total > 0) {
+            cssClass = "tt-ind-mastered";
+        } else if (struggling > 0) {
+            cssClass = "tt-ind-struggling";
+        } else if (improving > 0 || mastered > 0) {
+            cssClass = "tt-ind-partial";
+        } else {
+            cssClass = "tt-ind-new";
+        }
+
+        var parts = [];
+        if (mastered > 0) parts.push(mastered + " mastered");
+        if (improving > 0) parts.push(improving + " improving");
+        if (struggling > 0) parts.push(struggling + " struggling");
+        if (newCount > 0) parts.push(newCount + " new");
+        var summary = parts.join(", ");
+        if (attempts > 0) {
+            summary += " " + SYMBOLS.BULLET + " " +
+                Math.round((correct / attempts) * 100) + "% accuracy";
+        }
+
+        return {
+            mastered: mastered,
+            struggling: struggling,
+            improving: improving,
+            newCount: newCount,
+            total: total,
+            cssClass: cssClass,
+            summary: summary
+        };
+    },
+
+    /**
+     * Detect whether a filter string is a topic, subtopic, or concept.
+     * @private
+     */
+    _detectLevel: function(filter) {
+        var taxonomy = QuestionEngine.taxonomyData;
+        if (!taxonomy) return "concept";
+        if (taxonomy[filter]) return "topic";
+        var topics = Object.keys(taxonomy);
+        for (var i = 0; i < topics.length; i++) {
+            if (taxonomy[topics[i]][filter]) return "subtopic";
+            var subs = Object.keys(taxonomy[topics[i]]);
+            for (var j = 0; j < subs.length; j++) {
+                if (taxonomy[topics[i]][subs[j]][filter]) return "concept";
+            }
+        }
+        // Might be a problem type -- treat as concept-level
+        return "concept";
+    },
+
+    /**
+     * Return a status icon character for a mastery status.
+     * @private
+     */
+    _statusIcon: function(status) {
+        switch (status) {
+            case "mastered": return SYMBOLS.CHECK;
+            case "struggling": return SYMBOLS.CROSS;
+            case "improving": return SYMBOLS.ARROW_UP;
+            case "review": return SYMBOLS.REVIEW;
+            default: return SYMBOLS.BULLET;
+        }
+    },
+
+    /**
+     * Bind expand/collapse and revise button events on the tree.
+     * @private
+     */
+    _bindTreeEvents: function(container) {
+        // Expand/collapse on node click
+        container.querySelectorAll(".tt-node").forEach(function(node) {
+            var expandIcon = node.querySelector(".tt-expand-icon");
+            if (!expandIcon || expandIcon.classList.contains("tt-leaf")) return;
+
+            var clickTarget = node;
+            clickTarget.style.cursor = "pointer";
+            clickTarget.addEventListener("click", function(e) {
+                // Don't toggle if clicking the revise button
+                if (e.target.classList.contains("tt-revise-btn")) return;
+
+                var parent = node.parentElement;
+                var children = parent.querySelector(".tt-children");
+                if (!children) return;
+
+                var isOpen = children.style.display !== "none";
+                children.style.display = isOpen ? "none" : "block";
+                expandIcon.textContent = isOpen ? SYMBOLS.ARROW_RIGHT : "\u25BC";
+                expandIcon.classList.toggle("tt-expanded", !isOpen);
+            });
+        });
+
+        // Revise buttons
+        container.querySelectorAll(".tt-revise-btn").forEach(function(btn) {
+            btn.addEventListener("click", function(e) {
+                e.stopPropagation();
+                var filter = btn.getAttribute("data-filter");
+                var level = btn.getAttribute("data-level");
+                ReviseUI.startRevision(filter, level);
+            });
+        });
+    },
+
+    /**
+     * HTML-escape utility.
+     * @private
+     */
+    _esc: function(text) {
         if (!text) return "";
         return String(text)
             .replace(/&/g, "&amp;")
@@ -3591,11 +4165,11 @@ var DashboardUI = {
         bodyEl.querySelectorAll(".dash-hm-cell[data-topic]").forEach(function(cell) {
             cell.style.cursor = "pointer";
             cell.addEventListener("click", function() {
-                // Navigate to revision for this topic/concept (Phase S4 stub)
+                // Navigate to revision for this topic/concept
                 var topic = cell.getAttribute("data-topic");
                 var concept = cell.getAttribute("data-concept");
                 console.log("Dashboard: Revise " + topic + " / " + concept);
-                alert("Topic Revision for \"" + concept + "\" coming in Phase S4.");
+                ReviseUI.navigateAndRevise(concept);
             });
         });
     },
@@ -3664,13 +4238,13 @@ var DashboardUI = {
             btn.addEventListener("click", function() {
                 var pt = btn.getAttribute("data-pt");
                 console.log("Dashboard: Revise " + pt);
-                alert("Topic Revision for \"" + pt + "\" coming in Phase S4.");
+                ReviseUI.navigateAndRevise(pt);
             });
         });
 
         if (btnEl) {
             btnEl.onclick = function() {
-                alert("Revise All Weak Areas coming in Phase S4.");
+                ReviseUI.reviseAllWeak();
             };
         }
     },
@@ -4047,8 +4621,9 @@ var DashboardUI = {
         var emptyEl = document.getElementById("dash-timeline-empty");
         if (!el) return;
 
-        if (typeof TAUGHT_SCHEDULE === "undefined" || !TAUGHT_SCHEDULE.schedule ||
-            TAUGHT_SCHEDULE.schedule.length === 0) {
+        var sched = QuestionEngine.scheduleData;
+        if (!sched || !sched.schedule ||
+            sched.schedule.length === 0) {
             el.innerHTML = "";
             if (emptyEl) emptyEl.style.display = "block";
             return;
@@ -4060,7 +4635,7 @@ var DashboardUI = {
         var masteryMap = this._cache.masteryMap;
 
         var html = "";
-        TAUGHT_SCHEDULE.schedule.forEach(function(entry) {
+        sched.schedule.forEach(function(entry) {
             var entryDate = new Date(entry.date + "T00:00:00");
             var isPast = entryDate <= today;
             var isCurrent = false;
@@ -4163,80 +4738,1307 @@ var DashboardUI = {
 
 
 // ============================================================================
+// EXPORT / IMPORT MODULE (Phase S5)
+// Progress reports, full backups, update imports.
+// ============================================================================
+var ExportImport = {
+
+    /**
+     * Export a progress report (subset of data useful for the teacher).
+     * Includes: mastery records, session summaries, question history, confidence watch.
+     */
+    exportProgressReport: function() {
+        Promise.all([
+            DB.get(STORE_CONFIG, "main"),
+            DB.getAll(STORE_MASTERY),
+            DB.getAll(STORE_SESSIONS),
+            DB.getAll(STORE_HISTORY),
+            DB.getAll(STORE_CONFIDENCE)
+        ]).then(function(results) {
+            var config = results[0] || {};
+            var mastery = results[1];
+            var sessions = results[2];
+            var history = results[3];
+            var confidence = results[4];
+
+            // Compute summary statistics
+            var totalSessions = sessions.length;
+            var totalQuestions = 0;
+            var totalCorrect = 0;
+            var totalAttempted = 0;
+            var totalMinutes = 0;
+            var guidedTotal = 0;
+
+            sessions.forEach(function(s) {
+                totalQuestions += (s.questionsAttempted || 0);
+                totalCorrect += (s.partsCorrect || 0);
+                totalAttempted += (s.partsAttempted || 0);
+                totalMinutes += (s.durationMinutes || 0);
+                guidedTotal += (s.guidedSolutionAccesses || 0);
+            });
+
+            var masteredCount = 0;
+            var strugglingCount = 0;
+            mastery.forEach(function(m) {
+                if (m.status === "mastered") masteredCount++;
+                if (m.status === "struggling") strugglingCount++;
+            });
+
+            var report = {
+                reportType: "progressReport",
+                generatedBy: "WACE Student Trainer v" + APP_VERSION,
+                generatedAt: new Date().toISOString(),
+                studentName: config.studentName || "Unknown",
+                summary: {
+                    totalSessions: totalSessions,
+                    totalQuestionsAttempted: totalQuestions,
+                    totalPartsAttempted: totalAttempted,
+                    totalPartsCorrect: totalCorrect,
+                    overallAccuracy: totalAttempted > 0 ?
+                        Math.round((totalCorrect / totalAttempted) * 1000) / 10 : 0,
+                    totalStudyMinutes: totalMinutes,
+                    unlockedProblemTypes: QuestionEngine.unlockedProblemTypes.length,
+                    masteredProblemTypes: masteredCount,
+                    strugglingProblemTypes: strugglingCount,
+                    guidedSolutionAccesses: guidedTotal,
+                    confidenceWatchCount: confidence.length
+                },
+                mastery: mastery,
+                sessions: sessions.map(function(s) {
+                    // Strip any large data, keep summaries
+                    return {
+                        date: s.date,
+                        startTime: s.startTime,
+                        endTime: s.endTime,
+                        durationMinutes: s.durationMinutes,
+                        mode: s.mode,
+                        topicFilter: s.topicFilter,
+                        questionsAttempted: s.questionsAttempted,
+                        partsAttempted: s.partsAttempted,
+                        partsCorrect: s.partsCorrect,
+                        accuracyPercent: s.accuracyPercent,
+                        newMasteries: s.newMasteries,
+                        guidedSolutionAccesses: s.guidedSolutionAccesses,
+                        topicBreakdown: s.topicBreakdown
+                    };
+                }),
+                questionHistory: history,
+                confidenceWatch: confidence
+            };
+
+            var filename = "Progress_" + (config.studentName || "Student").replace(/\s+/g, "_") +
+                "_" + new Date().toISOString().split("T")[0] + ".json";
+            ExportImport._downloadJSON(report, filename);
+            ExportImport._showNotice("Progress report exported as " + filename);
+        }).catch(function(err) {
+            console.error("Export progress failed:", err);
+            alert("Error exporting progress report: " + (err.message || err));
+        });
+    },
+
+    /**
+     * Export a full backup of all IndexedDB stores.
+     */
+    exportFullBackup: function() {
+        var storeNames = OBJECT_STORES.map(function(s) { return s.name; });
+
+        var promises = storeNames.map(function(name) {
+            return DB.getAll(name).then(function(data) {
+                return { store: name, data: data };
+            });
+        });
+
+        Promise.all(promises).then(function(results) {
+            var backup = {
+                backupType: "fullBackup",
+                generatedBy: "WACE Student Trainer v" + APP_VERSION,
+                generatedAt: new Date().toISOString(),
+                stores: {}
+            };
+            results.forEach(function(r) {
+                backup.stores[r.store] = r.data;
+            });
+
+            var config = backup.stores[STORE_CONFIG];
+            var studentName = "Student";
+            if (config) {
+                config.forEach(function(c) {
+                    if (c.id === "main" && c.studentName) {
+                        studentName = c.studentName;
+                    }
+                });
+            }
+
+            var filename = "Backup_" + studentName.replace(/\s+/g, "_") +
+                "_" + new Date().toISOString().split("T")[0] + ".json";
+            ExportImport._downloadJSON(backup, filename);
+            ExportImport._showNotice("Full backup exported as " + filename);
+        }).catch(function(err) {
+            console.error("Export backup failed:", err);
+            alert("Error exporting backup: " + (err.message || err));
+        });
+    },
+
+    /**
+     * Import a full backup from a JSON file.
+     *
+     * @param {File} file
+     */
+    importBackup: function(file) {
+        if (!confirm("Import a backup? This will REPLACE all your current progress data.\n\n" +
+            "Make sure you export a backup of your current data first if you want to keep it.")) {
+            return;
+        }
+
+        ExportImport._readFile(file).then(function(text) {
+            var backup;
+            try {
+                backup = JSON.parse(text);
+            } catch (e) {
+                alert("Error: The file is not valid JSON.");
+                return;
+            }
+
+            if (!backup.stores || backup.backupType !== "fullBackup") {
+                alert("Error: This doesn't appear to be a valid backup file.");
+                return;
+            }
+
+            var storeNames = Object.keys(backup.stores);
+            var promises = [];
+
+            storeNames.forEach(function(storeName) {
+                var items = backup.stores[storeName];
+                if (!Array.isArray(items)) return;
+
+                // Clear the store first, then add all items
+                var p = DB.clear(storeName).then(function() {
+                    var putPromises = items.map(function(item) {
+                        return DB.put(storeName, item);
+                    });
+                    return Promise.all(putPromises);
+                });
+                promises.push(p);
+            });
+
+            return Promise.all(promises).then(function() {
+                ExportImport._showNotice("Backup restored successfully. Refreshing...");
+                // Reload the app to pick up the restored data
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1500);
+            });
+        }).catch(function(err) {
+            console.error("Import backup failed:", err);
+            alert("Error importing backup: " + (err.message || err));
+        });
+    },
+
+    /**
+     * Import a teacher update file (new questions, schedule updates, diagrams).
+     *
+     * @param {File} file
+     */
+    importUpdate: function(file) {
+        ExportImport._readFile(file).then(function(text) {
+            var update;
+            try {
+                update = JSON.parse(text);
+            } catch (e) {
+                alert("Error: The file is not valid JSON.");
+                return;
+            }
+
+            if (!update.updateId) {
+                alert("Error: This doesn't appear to be a valid update file.\n" +
+                    "Update files should have an 'updateId' field.");
+                return;
+            }
+
+            // Check if already imported
+            return DB.get(STORE_SCHEDULE_UPDATES, update.updateId).then(function(existing) {
+                if (existing) {
+                    alert("This update (" + update.updateId + ") has already been imported.");
+                    return;
+                }
+
+                var importedCount = 0;
+                var promises = [];
+
+                // 1. Import new questions
+                if (update.questions && typeof update.questions === "object") {
+                    var qKeys = Object.keys(update.questions);
+                    qKeys.forEach(function(filename) {
+                        var qData = update.questions[filename];
+                        var record = {
+                            filename: filename,
+                            questionData: qData,
+                            importedFrom: update.updateId,
+                            importedAt: new Date().toISOString()
+                        };
+                        promises.push(DB.put(STORE_IMPORTED, record));
+                        // Also merge into the live question engine
+                        QuestionEngine.allQuestions[filename] = qData;
+                        importedCount++;
+                    });
+                }
+
+                // 2. Store schedule update
+                if (update.scheduleUpdate) {
+                    var schedEntry = {
+                        updateId: update.updateId,
+                        date: update.scheduleUpdate.date || update.updateDate,
+                        label: update.scheduleUpdate.label || update.description || "",
+                        problemTypes: update.scheduleUpdate.problemTypes || [],
+                        importedAt: new Date().toISOString()
+                    };
+                    promises.push(DB.put(STORE_SCHEDULE_UPDATES, schedEntry));
+                }
+
+                // 3. Decode and cache diagrams
+                if (update.newDiagrams && typeof update.newDiagrams === "object") {
+                    var diagKeys = Object.keys(update.newDiagrams);
+                    diagKeys.forEach(function(diagFilename) {
+                        var dataUrl = update.newDiagrams[diagFilename];
+                        promises.push(
+                            DB.put(STORE_DIAGRAMS, {
+                                filename: diagFilename,
+                                dataUrl: dataUrl,
+                                importedFrom: update.updateId
+                            })
+                        );
+                    });
+                }
+
+                // 4. Record import in config
+                promises.push(
+                    DB.get(STORE_CONFIG, "main").then(function(config) {
+                        if (!config) return;
+                        if (!config.updatesImported) config.updatesImported = [];
+                        config.updatesImported.push({
+                            updateId: update.updateId,
+                            date: update.updateDate || new Date().toISOString().split("T")[0],
+                            description: update.description || "",
+                            questionsAdded: importedCount,
+                            importedAt: new Date().toISOString()
+                        });
+                        return DB.put(STORE_CONFIG, config);
+                    })
+                );
+
+                return Promise.all(promises).then(function() {
+                    // Recompute unlocked problem types with new schedule
+                    return DB.getAll(STORE_SCHEDULE_UPDATES);
+                }).then(function(scheduleUpdates) {
+                    QuestionEngine.allProblemTypes = QuestionEngine._extractAllProblemTypes();
+                    QuestionEngine.computeUnlocked(scheduleUpdates, false);
+
+                    var msg = "Update imported: " + update.updateId;
+                    if (importedCount > 0) {
+                        msg += "\n" + importedCount + " new question" +
+                            (importedCount !== 1 ? "s" : "") + " added.";
+                    }
+                    if (update.scheduleUpdate && update.scheduleUpdate.problemTypes) {
+                        msg += "\n" + update.scheduleUpdate.problemTypes.length +
+                            " problem type" +
+                            (update.scheduleUpdate.problemTypes.length !== 1 ? "s" : "") +
+                            " unlocked.";
+                    }
+                    ExportImport._showNotice(msg);
+                    // Refresh current tab
+                    UI.showTab(UI.currentTab);
+                });
+            });
+        }).catch(function(err) {
+            console.error("Import update failed:", err);
+            alert("Error importing update: " + (err.message || err));
+        });
+    },
+
+    // ---- PRIVATE HELPERS ----
+
+    /**
+     * Read a File object as text.
+     * @private
+     */
+    _readFile: function(file) {
+        return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function(e) { resolve(e.target.result); };
+            reader.onerror = function() { reject(new Error("Failed to read file")); };
+            reader.readAsText(file);
+        });
+    },
+
+    /**
+     * Download a JSON object as a file.
+     * @private
+     */
+    _downloadJSON: function(data, filename) {
+        var json = JSON.stringify(data, null, 2);
+        var blob = new Blob([json], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    },
+
+    /**
+     * Show a temporary notice banner at the top of the app.
+     * @private
+     */
+    _showNotice: function(message) {
+        var existing = document.querySelector(".export-import-notice");
+        if (existing) existing.remove();
+
+        var banner = document.createElement("div");
+        banner.className = "export-import-notice";
+        banner.innerHTML = SYMBOLS.CHECK + " " + message.replace(/\n/g, "<br>") +
+            '<button onclick="this.parentNode.remove()" ' +
+            'style="margin-left:12px;cursor:pointer;border:none;' +
+            'background:none;font-size:1.1em;">&times;</button>';
+
+        var topBar = document.getElementById("top-bar");
+        if (topBar && topBar.parentNode) {
+            topBar.parentNode.insertBefore(banner, topBar.nextSibling);
+        }
+
+        setTimeout(function() {
+            if (banner.parentNode) banner.remove();
+        }, 8000);
+    }
+};
+
+
+// ============================================================================
+// CELEBRATIONS MODULE (Phase S7)
+// Confetti-like particle animation for milestone achievements.
+// ============================================================================
+var Celebrations = {
+
+    /**
+     * Launch a confetti burst from the center-top of the viewport.
+     * @param {Object} [opts] - Optional overrides.
+     * @param {number} [opts.count=60] - Number of particles.
+     * @param {number} [opts.duration=2500] - Animation duration in ms.
+     */
+    confetti: function(opts) {
+        opts = opts || {};
+        var count = opts.count || 60;
+        var duration = opts.duration || 2500;
+        var colors = ["#16a34a", "#2563eb", "#d97706", "#dc2626",
+                      "#7c3aed", "#06b6d4", "#f59e0b", "#ec4899"];
+
+        var container = document.createElement("div");
+        container.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;" +
+            "pointer-events:none;z-index:9999;overflow:hidden;";
+        document.body.appendChild(container);
+
+        for (var i = 0; i < count; i++) {
+            var particle = document.createElement("div");
+            var color = colors[Math.floor(Math.random() * colors.length)];
+            var size = 4 + Math.random() * 6;
+            var isCircle = Math.random() > 0.5;
+
+            particle.style.cssText = "position:absolute;top:40%;left:50%;" +
+                "width:" + size + "px;height:" + (isCircle ? size : size * 0.4) + "px;" +
+                "background:" + color + ";" +
+                "border-radius:" + (isCircle ? "50%" : "1px") + ";" +
+                "opacity:1;";
+
+            container.appendChild(particle);
+            Celebrations._animateParticle(particle, duration);
+        }
+
+        setTimeout(function() {
+            if (container.parentNode) container.parentNode.removeChild(container);
+        }, duration + 200);
+    },
+
+    /**
+     * Animate a single confetti particle.
+     * @private
+     */
+    _animateParticle: function(el, duration) {
+        var angle = (Math.random() * 360) * (Math.PI / 180);
+        var velocity = 200 + Math.random() * 400;
+        var vx = Math.cos(angle) * velocity;
+        var vy = Math.sin(angle) * velocity - 300; // upward bias
+        var rotation = Math.random() * 720 - 360;
+        var gravity = 600;
+
+        var startTime = null;
+        function frame(timestamp) {
+            if (!startTime) startTime = timestamp;
+            var t = (timestamp - startTime) / 1000; // seconds
+            var progress = (timestamp - startTime) / duration;
+
+            if (progress >= 1) {
+                el.style.opacity = "0";
+                return;
+            }
+
+            var x = vx * t;
+            var y = vy * t + 0.5 * gravity * t * t;
+            var rot = rotation * t;
+            var opacity = progress > 0.7 ? 1 - ((progress - 0.7) / 0.3) : 1;
+
+            el.style.transform = "translate(" + x + "px, " + y + "px) rotate(" + rot + "deg)";
+            el.style.opacity = String(opacity);
+
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    },
+
+    /**
+     * Show a milestone banner at the top of the screen.
+     * @param {string} icon - Emoji/symbol for the banner.
+     * @param {string} title - Main title text.
+     * @param {string} subtitle - Description text.
+     */
+    showMilestoneBanner: function(icon, title, subtitle) {
+        var existing = document.querySelector(".milestone-banner");
+        if (existing) existing.remove();
+
+        var banner = document.createElement("div");
+        banner.className = "milestone-banner";
+        banner.innerHTML = '<span class="milestone-icon">' + icon + '</span>' +
+            '<div class="milestone-text"><strong>' + title + '</strong>' +
+            (subtitle ? '<br><span>' + subtitle + '</span>' : '') +
+            '</div>' +
+            '<button onclick="this.parentNode.remove()" ' +
+            'style="background:none;border:none;color:inherit;font-size:1.2em;' +
+            'cursor:pointer;padding:4px;margin-left:auto;">&times;</button>';
+
+        var topBar = document.getElementById("top-bar");
+        if (topBar && topBar.parentNode) {
+            topBar.parentNode.insertBefore(banner, topBar.nextSibling);
+        }
+        // Auto-remove after 6 seconds
+        setTimeout(function() {
+            if (banner.parentNode) {
+                banner.style.opacity = "0";
+                setTimeout(function() { banner.remove(); }, 400);
+            }
+        }, 6000);
+    },
+
+    /**
+     * Check for and fire milestone celebrations after a session ends.
+     * @param {Object} sessionData - The session summary data.
+     */
+    checkMilestones: function(sessionData) {
+        if (!sessionData) return;
+
+        // New masteries this session -> confetti
+        if (sessionData.newMasteries && sessionData.newMasteries.length > 0) {
+            Celebrations.confetti({ count: 40 + sessionData.newMasteries.length * 10 });
+        }
+
+        // Check for first-ever mastery
+        DB.getAll(STORE_MASTERY).then(function(records) {
+            var masteredCount = 0;
+            records.forEach(function(r) {
+                if (r.status === "mastered") masteredCount++;
+            });
+
+            // First mastery ever (exactly the count of new masteries = total mastered)
+            if (sessionData.newMasteries && sessionData.newMasteries.length > 0 &&
+                masteredCount === sessionData.newMasteries.length) {
+                Celebrations.showMilestoneBanner(
+                    SYMBOLS.TROPHY,
+                    "First Mastery!",
+                    "You've mastered your first problem type. Keep going!"
+                );
+            }
+
+            // 10, 25, 50 milestones
+            var milestones = [10, 25, 50, 75, 100];
+            for (var i = 0; i < milestones.length; i++) {
+                var m = milestones[i];
+                if (masteredCount >= m &&
+                    masteredCount - (sessionData.newMasteries ? sessionData.newMasteries.length : 0) < m) {
+                    Celebrations.confetti({ count: 80 });
+                    Celebrations.showMilestoneBanner(
+                        SYMBOLS.STAR,
+                        m + " Problem Types Mastered!",
+                        "Outstanding achievement."
+                    );
+                    break;
+                }
+            }
+        });
+
+        // Check streak milestones
+        DB.getAll(STORE_SESSIONS).then(function(sessions) {
+            var streak = Celebrations._computeStreak(sessions);
+            var streakMilestones = [3, 7, 14, 30];
+            for (var i = 0; i < streakMilestones.length; i++) {
+                if (streak === streakMilestones[i]) {
+                    Celebrations.showMilestoneBanner(
+                        SYMBOLS.FIRE,
+                        streak + "-Day Streak!",
+                        "Consistency is the key to success."
+                    );
+                    break;
+                }
+            }
+        });
+    },
+
+    /**
+     * Compute current study streak (consecutive days).
+     * @private
+     */
+    _computeStreak: function(sessions) {
+        if (!sessions || sessions.length === 0) return 0;
+
+        var dates = {};
+        sessions.forEach(function(s) {
+            var d = (s.startTime || s.date || "").substring(0, 10);
+            if (d) dates[d] = true;
+        });
+
+        var sortedDates = Object.keys(dates).sort().reverse();
+        if (sortedDates.length === 0) return 0;
+
+        var today = new Date();
+        var todayStr = today.toISOString().substring(0, 10);
+        var yesterdayStr = new Date(today.getTime() - 86400000).toISOString().substring(0, 10);
+
+        // Streak must include today or yesterday
+        if (sortedDates[0] !== todayStr && sortedDates[0] !== yesterdayStr) return 0;
+
+        var streak = 1;
+        for (var i = 1; i < sortedDates.length; i++) {
+            var prev = new Date(sortedDates[i - 1] + "T00:00:00");
+            var curr = new Date(sortedDates[i] + "T00:00:00");
+            var diff = (prev - curr) / 86400000;
+            if (diff === 1) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }
+};
+
+
+// ============================================================================
+// KEYBOARD SHORTCUTS (Phase S7)
+// Global keyboard handler for power-user navigation.
+// ============================================================================
+var KeyboardShortcuts = {
+
+    /**
+     * Initialise keyboard event listener.
+     */
+    init: function() {
+        document.addEventListener("keydown", function(e) {
+            // Ignore if user is typing in an input/textarea
+            var tag = (e.target.tagName || "").toLowerCase();
+            if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+            // Ignore if a modal is open
+            var settingsModal = document.getElementById("settings-modal");
+            if (settingsModal && settingsModal.style.display !== "none" &&
+                settingsModal.style.display !== "") return;
+
+            KeyboardShortcuts._handleKey(e);
+        });
+    },
+
+    /**
+     * Process a keydown event.
+     * @private
+     */
+    _handleKey: function(e) {
+        var key = e.key;
+
+        // ---- TAB NAVIGATION (1-4 when not in a session) ----
+        var questionArea = document.getElementById("question-area");
+        var inSession = questionArea && questionArea.style.display !== "none" &&
+            questionArea.innerHTML !== "";
+        var reviseArea = document.getElementById("revise-question-area");
+        var inRevision = reviseArea && reviseArea.style.display !== "none" &&
+            reviseArea.innerHTML !== "";
+
+        if (!inSession && !inRevision) {
+            switch (key) {
+                case "1": UI.showTab("study"); e.preventDefault(); return;
+                case "2": UI.showTab("revise"); e.preventDefault(); return;
+                case "3": UI.showTab("print"); e.preventDefault(); return;
+                case "4": UI.showTab("dashboard"); e.preventDefault(); return;
+            }
+        }
+
+        // ---- IN-SESSION SHORTCUTS ----
+        if (inSession || inRevision) {
+            // Enter or Space -> click the most prominent available action
+            if (key === "Enter" || key === " ") {
+                // Priority: Next Question btn > Show Solution btn > Start Session btn
+                var nextBtn = document.getElementById("next-question-btn");
+                if (nextBtn && nextBtn.offsetParent !== null) {
+                    nextBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // 'S' -> Show solution
+            if (key === "s" || key === "S") {
+                var showSolBtn = document.getElementById("show-solution-btn");
+                if (showSolBtn && showSolBtn.offsetParent !== null) {
+                    showSolBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // 'G' -> Show guided walkthrough
+            if (key === "g" || key === "G") {
+                var guidedBtn = document.getElementById("show-guided-btn");
+                if (guidedBtn && guidedBtn.offsetParent !== null) {
+                    guidedBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // 'N' -> Next question
+            if (key === "n" || key === "N") {
+                var nBtn = document.getElementById("next-question-btn");
+                if (nBtn && nBtn.offsetParent !== null) {
+                    nBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // 'R' -> Another like this (retry)
+            if (key === "r" || key === "R") {
+                var retryBtn = document.getElementById("another-like-this-btn");
+                if (retryBtn && retryBtn.offsetParent !== null) {
+                    retryBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // Escape -> End session (with confirmation)
+            if (key === "Escape") {
+                var endBtn = document.getElementById("end-session-btn") ||
+                    document.getElementById("end-session-btn-2");
+                if (endBtn && endBtn.offsetParent !== null) {
+                    endBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+
+        // 'D' -> toggle dark mode anywhere
+        if ((key === "d" || key === "D") && e.altKey) {
+            var isDark = document.body.classList.contains("dark-theme");
+            var newTheme = isDark ? "light" : "dark";
+            UI.applyTheme(newTheme);
+            UI.savePreference("theme", newTheme);
+            var themeSelect = document.getElementById("pref-theme");
+            if (themeSelect) themeSelect.value = newTheme;
+            e.preventDefault();
+            return;
+        }
+
+        // '?' -> show shortcuts help
+        if (key === "?") {
+            KeyboardShortcuts.showHelp();
+            e.preventDefault();
+        }
+    },
+
+    /**
+     * Show a keyboard shortcuts help overlay.
+     */
+    showHelp: function() {
+        var existing = document.getElementById("shortcuts-overlay");
+        if (existing) { existing.remove(); return; }
+
+        var overlay = document.createElement("div");
+        overlay.id = "shortcuts-overlay";
+        overlay.className = "shortcuts-overlay";
+        overlay.innerHTML =
+            '<div class="shortcuts-card">' +
+            '<div class="shortcuts-header">' +
+            '<h3>Keyboard Shortcuts</h3>' +
+            '<button onclick="document.getElementById(\'shortcuts-overlay\').remove()" ' +
+            'style="background:none;border:none;font-size:1.3em;cursor:pointer;color:var(--text-primary);">&times;</button>' +
+            '</div>' +
+            '<div class="shortcuts-grid">' +
+            '<div class="sc-section"><strong>Navigation</strong>' +
+            '<div class="sc-row"><kbd>1</kbd><span>Study tab</span></div>' +
+            '<div class="sc-row"><kbd>2</kbd><span>Revise tab</span></div>' +
+            '<div class="sc-row"><kbd>3</kbd><span>Print tab</span></div>' +
+            '<div class="sc-row"><kbd>4</kbd><span>Dashboard tab</span></div>' +
+            '<div class="sc-row"><kbd>Alt+D</kbd><span>Toggle dark mode</span></div>' +
+            '</div>' +
+            '<div class="sc-section"><strong>During Questions</strong>' +
+            '<div class="sc-row"><kbd>S</kbd><span>Show solution</span></div>' +
+            '<div class="sc-row"><kbd>G</kbd><span>Show guided walkthrough</span></div>' +
+            '<div class="sc-row"><kbd>N</kbd> / <kbd>Enter</kbd><span>Next question</span></div>' +
+            '<div class="sc-row"><kbd>R</kbd><span>Another like this</span></div>' +
+            '<div class="sc-row"><kbd>Esc</kbd><span>End session</span></div>' +
+            '</div>' +
+            '</div>' +
+            '<p style="text-align:center;color:var(--text-muted);font-size:0.8rem;margin-top:12px;">Press <kbd>?</kbd> to toggle this panel</p>' +
+            '</div>';
+
+        overlay.addEventListener("click", function(e) {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        document.body.appendChild(overlay);
+    }
+};
+
+
+// ============================================================================
+// PRINT PRACTICE MODULE (Phase S6)
+// Generates printable question sets as HTML documents in a new window.
+// ============================================================================
+var PrintUI = {
+
+    /**
+     * Initialise print tab event listeners.
+     */
+    init: function() {
+        // Topic mode toggles
+        var topicToggles = document.querySelectorAll(".print-topic-mode");
+        topicToggles.forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                topicToggles.forEach(function(b) { b.setAttribute("aria-pressed", "false"); });
+                btn.setAttribute("aria-pressed", "true");
+                var topicList = document.getElementById("print-topic-list");
+                if (topicList) {
+                    topicList.style.display = btn.getAttribute("data-value") === "select" ? "block" : "none";
+                }
+                PrintUI.updateHint();
+            });
+        });
+
+        // Difficulty toggles
+        PrintUI._initToggleGroup(".print-diff-toggle");
+        // Section toggles
+        PrintUI._initToggleGroup(".print-sec-toggle");
+
+        // Count slider
+        var countInput = document.getElementById("print-count-input");
+        var countDisplay = document.getElementById("print-count-display");
+        if (countInput && countDisplay) {
+            countInput.addEventListener("input", function() {
+                countDisplay.textContent = countInput.value;
+            });
+        }
+
+        // Generate button
+        var genBtn = document.getElementById("print-generate-btn");
+        if (genBtn) {
+            genBtn.addEventListener("click", function() {
+                PrintUI.generate();
+            });
+        }
+    },
+
+    /**
+     * Refresh the print tab (build topic checklist, update hint).
+     */
+    refresh: function() {
+        PrintUI._buildTopicChecklist();
+        PrintUI.updateHint();
+    },
+
+    /**
+     * Update the "X questions available" hint text.
+     */
+    updateHint: function() {
+        var hint = document.getElementById("print-available-hint");
+        if (!hint) return;
+        var candidates = PrintUI._getCandidates();
+        hint.textContent = candidates.length + " question" +
+            (candidates.length !== 1 ? "s" : "") + " available with current filters";
+    },
+
+    /**
+     * Generate a printable HTML document.
+     */
+    generate: function() {
+        var candidates = PrintUI._getCandidates();
+        var count = parseInt(document.getElementById("print-count-input").value, 10) || 5;
+
+        if (candidates.length === 0) {
+            alert("No questions match your current filters. Try broadening your selection.");
+            return;
+        }
+
+        // Select questions (prioritise less recently attempted, then random)
+        var selected = PrintUI._selectQuestions(candidates, count);
+
+        // Read options
+        var incSolutions = document.getElementById("print-inc-solutions").checked;
+        var incGuided = document.getElementById("print-inc-guided").checked;
+        var incMarking = document.getElementById("print-inc-marking").checked;
+
+        // Build the HTML document
+        var html = PrintUI._buildPrintHTML(selected, {
+            solutions: incSolutions,
+            guided: incGuided,
+            marking: incMarking
+        });
+
+        // Open in a new window for printing
+        var win = window.open("", "_blank");
+        if (!win) {
+            alert("Pop-up blocked. Please allow pop-ups for this page and try again.");
+            return;
+        }
+        win.document.write(html);
+        win.document.close();
+    },
+
+    // ---- PRIVATE HELPERS ----
+
+    /**
+     * Build the topic checklist from TAXONOMY_DATA.
+     * @private
+     */
+    _buildTopicChecklist: function() {
+        var container = document.getElementById("print-topic-list");
+        if (!container) return;
+
+        var taxonomy = QuestionEngine.taxonomyData || {};
+        var topics = Object.keys(taxonomy);
+        if (topics.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No topic data available.</p>';
+            return;
+        }
+
+        var html = "";
+        topics.forEach(function(topic) {
+            html += '<label class="print-check-row">' +
+                '<input type="checkbox" class="print-topic-cb" value="' +
+                PrintUI._esc(topic) + '" checked>' +
+                '<span>' + PrintUI._esc(topic) + '</span></label>';
+        });
+        container.innerHTML = html;
+
+        // Bind change events
+        container.querySelectorAll(".print-topic-cb").forEach(function(cb) {
+            cb.addEventListener("change", function() {
+                PrintUI.updateHint();
+            });
+        });
+    },
+
+    /**
+     * Get the list of candidate questions matching current filters.
+     * @private
+     * @returns {Array<{filename: string, questionData: Object}>}
+     */
+    _getCandidates: function() {
+        var diffFilter = PrintUI._getToggleValue(".print-diff-toggle");
+        var secFilter = PrintUI._getToggleValue(".print-sec-toggle");
+        var topicMode = PrintUI._getToggleValue(".print-topic-mode");
+
+        var selectedTopics = null;
+        if (topicMode === "select") {
+            selectedTopics = {};
+            document.querySelectorAll(".print-topic-cb:checked").forEach(function(cb) {
+                selectedTopics[cb.value] = true;
+            });
+        }
+
+        var results = [];
+        var keys = Object.keys(QuestionEngine.allQuestions);
+        keys.forEach(function(filename) {
+            var q = QuestionEngine.allQuestions[filename];
+            if (!q.parts || q.parts.length === 0) return;
+
+            // Must be available (all parts unlocked)
+            if (!QuestionEngine.isQuestionAvailable(q)) return;
+
+            // Difficulty filter
+            if (diffFilter !== "any") {
+                if (q.difficultyRating !== diffFilter) return;
+            }
+
+            // Section filter
+            if (secFilter !== "mix") {
+                if (q.sectionName && q.sectionName !== secFilter) return;
+            }
+
+            // Topic filter
+            if (selectedTopics) {
+                var topicMatch = false;
+                for (var i = 0; i < q.parts.length; i++) {
+                    if (q.parts[i].topic && selectedTopics[q.parts[i].topic]) {
+                        topicMatch = true;
+                        break;
+                    }
+                }
+                if (!topicMatch) return;
+            }
+
+            results.push({ filename: filename, questionData: q });
+        });
+
+        return results;
+    },
+
+    /**
+     * Select questions from candidates, preferring less recently attempted.
+     * @private
+     */
+    _selectQuestions: function(candidates, count) {
+        // Shuffle first
+        var shuffled = candidates.slice();
+        for (var i = shuffled.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = shuffled[i];
+            shuffled[i] = shuffled[j];
+            shuffled[j] = tmp;
+        }
+
+        // Take up to count
+        return shuffled.slice(0, Math.min(count, shuffled.length));
+    },
+
+    /**
+     * Strip LaTeX delimiters from text for readable plain-text output.
+     * Converts $...$ and $$...$$ to just the content inside.
+     * @private
+     */
+    _stripLatex: function(text) {
+        if (!text) return "";
+        // Remove display math delimiters
+        var s = text.replace(/\$\$(.*?)\$\$/g, "$1");
+        // Remove inline math delimiters
+        s = s.replace(/\$(.*?)\$/g, "$1");
+        // Remove \( \) and \[ \]
+        s = s.replace(/\\\((.*?)\\\)/g, "$1");
+        s = s.replace(/\\\[(.*?)\\\]/g, "$1");
+        // Clean up common LaTeX commands for readability
+        s = s.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, "($1)/($2)");
+        s = s.replace(/\\sqrt\{([^}]*)\}/g, "sqrt($1)");
+        s = s.replace(/\\left\(/g, "(").replace(/\\right\)/g, ")");
+        s = s.replace(/\\left\[/g, "[").replace(/\\right\]/g, "]");
+        s = s.replace(/\\times/g, "\u00D7");
+        s = s.replace(/\\div/g, "\u00F7");
+        s = s.replace(/\\pm/g, "\u00B1");
+        s = s.replace(/\\leq/g, "\u2264").replace(/\\geq/g, "\u2265");
+        s = s.replace(/\\neq/g, "\u2260");
+        s = s.replace(/\\infty/g, "\u221E");
+        s = s.replace(/\\pi/g, "\u03C0");
+        s = s.replace(/\\theta/g, "\u03B8");
+        s = s.replace(/\\[a-zA-Z]+/g, ""); // remove remaining commands
+        s = s.replace(/[{}]/g, ""); // remove remaining braces
+        return s.trim();
+    },
+
+    /**
+     * Build the printable HTML document.
+     * @private
+     */
+    _buildPrintHTML: function(selected, options) {
+        var dateStr = new Date().toLocaleDateString("en-AU", {
+            year: "numeric", month: "long", day: "numeric"
+        });
+        var totalMarks = 0;
+        selected.forEach(function(s) { totalMarks += (s.questionData.totalMarks || 0); });
+
+        var h = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+        h += '<title>Practice Questions - ' + dateStr + '</title>';
+        h += '<style>';
+        h += 'body{font-family:"Segoe UI",Calibri,Arial,sans-serif;max-width:800px;margin:0 auto;padding:24px;color:#1a1d23;line-height:1.6;font-size:11pt;}';
+        h += 'h1{font-size:16pt;margin-bottom:4px;border-bottom:2px solid #333;padding-bottom:6px;}';
+        h += '.meta{color:#555;font-size:9pt;margin-bottom:24px;}';
+        h += '.question{margin-bottom:28px;page-break-inside:avoid;}';
+        h += '.q-header{font-weight:700;font-size:11.5pt;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;}';
+        h += '.q-marks{font-weight:400;color:#666;font-size:9.5pt;}';
+        h += '.q-difficulty{font-size:8pt;color:#888;padding:1px 6px;border:1px solid #ccc;border-radius:3px;margin-left:8px;}';
+        h += '.q-stimulus{margin-bottom:10px;}';
+        h += '.q-part{margin-bottom:8px;margin-left:16px;}';
+        h += '.q-part-label{font-weight:600;}';
+        h += '.q-part-marks{color:#666;font-style:italic;font-size:9.5pt;}';
+        h += '.workspace{border:1px solid #ddd;min-height:100px;margin:8px 0 0 16px;border-radius:4px;}';
+        h += '.section-divider{page-break-before:always;border-top:3px solid #333;padding-top:16px;margin-top:32px;}';
+        h += '.sol-header{font-size:14pt;font-weight:700;border-bottom:2px solid #333;padding-bottom:6px;margin-bottom:20px;page-break-before:always;}';
+        h += '.sol-question{margin-bottom:24px;page-break-inside:avoid;}';
+        h += '.sol-q-title{font-weight:700;font-size:11pt;margin-bottom:8px;}';
+        h += '.sol-part{margin-bottom:12px;margin-left:16px;}';
+        h += '.sol-part-label{font-weight:600;margin-bottom:4px;}';
+        h += '.sol-line{margin:2px 0;padding:3px 0;border-bottom:1px dotted #e0e0e0;}';
+        h += '.sol-guided{background:#f5f5f5;padding:10px;border-radius:4px;margin-top:6px;font-size:10pt;color:#333;}';
+        h += '.sol-guided-label{font-weight:600;color:#444;margin-bottom:4px;}';
+        h += '.mark-row{font-size:9.5pt;padding:2px 0;}';
+        h += '.mark-awarded{color:#16a34a;font-weight:600;}';
+        h += '@media print{body{padding:0;}.workspace{min-height:120px;}}';
+        h += '@media screen{.no-print-msg{background:#e8f4fd;padding:12px 20px;border-radius:6px;margin-bottom:20px;font-size:10pt;color:#1e40af;}}';
+        h += '</style></head><body>';
+
+        // On-screen instruction
+        h += '<div class="no-print-msg">Press <strong>Ctrl+P</strong> (or \u2318P) to print or save as PDF. Close this window when done.</div>';
+
+        // Title
+        h += '<h1>WACE Methods Practice Questions</h1>';
+        h += '<div class="meta">Generated: ' + dateStr + ' &bull; ' +
+            selected.length + ' question' + (selected.length !== 1 ? 's' : '') +
+            ' &bull; ' + totalMarks + ' marks total &bull; ' +
+            'Estimated time: ' + totalMarks + ' minutes</div>';
+
+        // Questions
+        selected.forEach(function(item, idx) {
+            var q = item.questionData;
+            h += '<div class="question">';
+            h += '<div class="q-header"><span>Question ' + (idx + 1);
+            if (q.questionReference) h += ' \u2014 ' + PrintUI._esc(PrintUI._stripLatex(q.questionReference));
+            h += '</span>';
+            h += '<span class="q-marks">[' + (q.totalMarks || '?') + ' marks]</span>';
+            if (q.difficultyRating) h += '<span class="q-difficulty">' + PrintUI._esc(q.difficultyRating) + '</span>';
+            h += '</div>';
+
+            if (q.sectionName) {
+                h += '<div style="font-size:8.5pt;color:#888;margin-bottom:6px;">' +
+                    (q.sectionName === "CA" ? "Calculator Assumed" : "Calculator Free") + '</div>';
+            }
+
+            if (q.questionStimulus) {
+                h += '<div class="q-stimulus">' + PrintUI._esc(PrintUI._stripLatex(q.questionStimulus)) + '</div>';
+            }
+
+            (q.parts || []).forEach(function(part) {
+                h += '<div class="q-part">';
+                h += '<span class="q-part-label">(' + PrintUI._esc(part.partLabel) + ')</span> ';
+                h += PrintUI._esc(PrintUI._stripLatex(part.questionText));
+                h += ' <span class="q-part-marks">[' + (part.partMarks || '?') + ' mark' +
+                    (part.partMarks !== 1 ? 's' : '') + ']</span>';
+                h += '</div>';
+                h += '<div class="workspace"></div>';
+            });
+            h += '</div>';
+        });
+
+        // Solutions section
+        if (options.solutions || options.guided || options.marking) {
+            h += '<div class="sol-header">Solutions</div>';
+
+            selected.forEach(function(item, idx) {
+                var q = item.questionData;
+                h += '<div class="sol-question">';
+                h += '<div class="sol-q-title">Question ' + (idx + 1);
+                if (q.questionReference) h += ' \u2014 ' + PrintUI._esc(PrintUI._stripLatex(q.questionReference));
+                h += '</div>';
+
+                (q.parts || []).forEach(function(part) {
+                    h += '<div class="sol-part">';
+                    h += '<div class="sol-part-label">(' + PrintUI._esc(part.partLabel) + ')</div>';
+
+                    // Worked solution
+                    if (options.solutions && part.originalSolution) {
+                        part.originalSolution.forEach(function(line) {
+                            if (line.shown !== false) {
+                                h += '<div class="sol-line">' +
+                                    PrintUI._esc(PrintUI._stripLatex(line.text)) + '</div>';
+                            }
+                        });
+                    }
+
+                    // Marking key
+                    if (options.marking && part.marking) {
+                        h += '<div style="margin-top:6px;">';
+                        part.marking.forEach(function(criterion) {
+                            h += '<div class="mark-row"><span class="mark-awarded">[' +
+                                (criterion.awarded || 1) + ']</span> ' +
+                                PrintUI._esc(PrintUI._stripLatex(criterion.text)) + '</div>';
+                        });
+                        h += '</div>';
+                    }
+
+                    // Guided solution
+                    if (options.guided && part.guidedSolution) {
+                        h += '<div class="sol-guided"><div class="sol-guided-label">Guided walkthrough:</div>' +
+                            PrintUI._esc(PrintUI._stripLatex(part.guidedSolution)).replace(/\\n/g, '<br>') +
+                            '</div>';
+                    }
+
+                    h += '</div>'; // sol-part
+                });
+                h += '</div>'; // sol-question
+            });
+        }
+
+        h += '</body></html>';
+        return h;
+    },
+
+    /**
+     * Get the active value from a toggle group.
+     * @private
+     */
+    _getToggleValue: function(selector) {
+        var active = document.querySelector(selector + '[aria-pressed="true"]');
+        return active ? active.getAttribute("data-value") : "any";
+    },
+
+    /**
+     * Set up a toggle group (mutual exclusive buttons).
+     * @private
+     */
+    _initToggleGroup: function(selector) {
+        var btns = document.querySelectorAll(selector);
+        btns.forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                btns.forEach(function(b) { b.setAttribute("aria-pressed", "false"); });
+                btn.setAttribute("aria-pressed", "true");
+                PrintUI.updateHint();
+            });
+        });
+    },
+
+    /**
+     * HTML-escape.
+     * @private
+     */
+    _esc: function(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+};
+
+
+// ============================================================================
 // APP INITIALISATION
 // ============================================================================
 function initApp() {
-    console.log("=== WACE Student Study Trainer v" + APP_VERSION + " ===");
+    console.log("=== WACE Student Study Trainer v" + APP_VERSION + " (Cloud) ===");
     console.log("Initialising...");
 
-    // Step 1: Initialise question engine (loads data from script-tag globals)
-    QuestionEngine.init();
+    // Step 0: Check access code (if access control is enabled)
+    var accessPromise;
+    if (typeof AccessControl !== "undefined" && AccessControl.init) {
+        accessPromise = AccessControl.init();
+    } else {
+        accessPromise = Promise.resolve({ granted: true });
+    }
 
-    // Step 2: Initialise IndexedDB
-    DB.init().then(function() {
-        // Step 3: Merge any imported questions
-        return DB.getAll(STORE_IMPORTED);
-    }).then(function(imported) {
-        QuestionEngine.mergeImportedQuestions(imported);
-
-        // Step 4: Get schedule updates from IndexedDB
-        return DB.getAll(STORE_SCHEDULE_UPDATES);
-    }).then(function(scheduleUpdates) {
-        // Step 5: Check config for ahead-of-schedule setting
-        return DB.get(STORE_CONFIG, "main").then(function(config) {
-            var aheadOfSchedule = config ? !!config.aheadOfScheduleEnabled : false;
-
-            // Step 6: Compute unlocked problem types
-            QuestionEngine.computeUnlocked(scheduleUpdates, aheadOfSchedule);
-
-            return config;
-        });
-    }).then(function(config) {
-        // Step 7: Initialise UI event listeners
-        UI.init();
-        StudyUI.init();
-
-        // Step 8: Show welcome screen or main app
-        if (!config) {
-            console.log("First run detected - showing welcome screen");
-            UI.showWelcomeScreen();
-        } else {
-            console.log("Returning user: " + config.studentName);
-            UI.showMainApp(config);
+    accessPromise.then(function(accessResult) {
+        // If access denied, AccessControl shows its own UI -- stop here
+        if (!accessResult.granted) {
+            console.log("Access code required -- waiting for student input");
+            return;
         }
 
-        console.log("Initialisation complete.");
+        // Step 1: Fetch all data files from the server
+        return DataLoader.loadAll().then(function(loadedData) {
 
-        // Check MathJax loaded after a delay -- warn user if not
-        setTimeout(function() {
-            if (typeof MathJax === "undefined" || !MathJax.typesetPromise) {
-                console.warn("MathJax not available -- equations will show as raw LaTeX");
-                var banner = document.createElement("div");
-                banner.className = "mathjax-warning";
-                banner.innerHTML = SYMBOLS.CROSS +
-                    " <strong>Math rendering not available.</strong> " +
-                    "Equations will show as text. " +
-                    "To fix: place the MathJax offline bundle in " +
-                    "trainer_data/mathjax/ or connect to the internet." +
-                    '<button onclick="this.parentNode.remove()" ' +
-                    'style="margin-left:12px;cursor:pointer;border:none;' +
-                    'background:none;font-size:1.1em;">&times;</button>';
-                var topBar = document.getElementById("top-bar");
-                if (topBar && topBar.parentNode) {
-                    topBar.parentNode.insertBefore(banner, topBar.nextSibling);
+            // Step 2: Initialise question engine with fetched data
+            QuestionEngine.init(loadedData);
+
+            // Step 3: Initialise IndexedDB
+            return DB.init().then(function() {
+                // Step 4: Merge any imported questions
+                return DB.getAll(STORE_IMPORTED);
+            }).then(function(imported) {
+                QuestionEngine.mergeImportedQuestions(imported);
+
+                // Step 5: Get schedule updates from IndexedDB
+                return DB.getAll(STORE_SCHEDULE_UPDATES);
+            }).then(function(scheduleUpdates) {
+                // Step 6: Check config for ahead-of-schedule setting
+                return DB.get(STORE_CONFIG, "main").then(function(config) {
+                    var aheadOfSchedule = config ? !!config.aheadOfScheduleEnabled : false;
+
+                    // Step 7: Compute unlocked problem types
+                    QuestionEngine.computeUnlocked(scheduleUpdates, aheadOfSchedule);
+
+                    return config;
+                });
+            }).then(function(config) {
+                // Step 8: Initialise UI event listeners
+                UI.init();
+                StudyUI.init();
+                PrintUI.init();
+                KeyboardShortcuts.init();
+
+                // Step 9: Initialise Firebase sync (if available)
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.init) {
+                    FirebaseSync.init(config).catch(function(err) {
+                        console.warn("Firebase sync not available:", err.message);
+                    });
                 }
-            }
-        }, 12000);
+
+                // Step 10: Show welcome screen or main app
+                if (!config) {
+                    console.log("First run detected - showing welcome screen");
+                    UI.showWelcomeScreen();
+                } else {
+                    console.log("Returning user: " + config.studentName);
+                    UI.showMainApp(config);
+                }
+
+                console.log("Initialisation complete.");
+
+                // Check MathJax loaded after a delay -- warn user if not
+                setTimeout(function() {
+                    if (typeof MathJax === "undefined" || !MathJax.typesetPromise) {
+                        console.warn("MathJax not available -- equations will show as raw LaTeX");
+                        var banner = document.createElement("div");
+                        banner.className = "mathjax-warning";
+                        banner.innerHTML = SYMBOLS.CROSS +
+                            " <strong>Math rendering not available.</strong> " +
+                            "Equations will show as text. " +
+                            "Check your internet connection and refresh." +
+                            '<button onclick="this.parentNode.remove()" ' +
+                            'style="margin-left:12px;cursor:pointer;border:none;' +
+                            'background:none;font-size:1.1em;">&times;</button>';
+                        var topBar = document.getElementById("top-bar");
+                        if (topBar && topBar.parentNode) {
+                            topBar.parentNode.insertBefore(banner, topBar.nextSibling);
+                        }
+                    }
+                }, 12000);
+            });
+        });
     }).catch(function(err) {
         console.error("Initialisation failed:", err);
-        // Show a basic error message
+        // Show error with recovery option
         document.body.innerHTML =
-            "<div style=\"padding:2em;font-family:sans-serif;\">" +
+            "<div style=\"padding:2em;font-family:sans-serif;max-width:600px;margin:0 auto;\">" +
             "<h1>Error Starting Study Trainer</h1>" +
             "<p>There was a problem initialising the application:</p>" +
-            "<pre>" + (err.message || err) + "</pre>" +
+            "<pre style=\"background:#f5f5f5;padding:12px;border-radius:6px;overflow-x:auto;\">" +
+            (err.message || err) + "</pre>" +
             "<p>Try refreshing the page. If the problem persists, " +
             "try opening in a different browser (Edge or Chrome recommended).</p>" +
+            "<p>If refreshing doesn't help, you can reset the app data:</p>" +
+            "<button onclick=\"if(confirm('This will erase all your progress. Continue?')){" +
+            "var r=indexedDB.deleteDatabase('" + DB_NAME + "');" +
+            "r.onsuccess=function(){window.location.reload();};" +
+            "r.onerror=function(){alert('Reset failed. Try clearing browser data.');};" +
+            "}\" style=\"padding:10px 20px;background:#dc2626;color:white;border:none;" +
+            "border-radius:6px;cursor:pointer;font-size:0.95rem;\">Reset App Data</button>" +
+            "<p style=\"color:#888;font-size:0.85rem;margin-top:12px;\">" +
+            "Warning: resetting will erase all progress, mastery records, and settings.</p>" +
             "</div>";
     });
 }

@@ -1,242 +1,140 @@
 // access-codes.js -- One-time access code system
 // ENCODING: This file MUST be pure ASCII.
 //
-// How it works:
-// 1. Teacher generates codes and uploads them to Firestore (via generate_codes.html)
-// 2. Student visits the app -> sees access code screen
-// 3. Student enters their code -> app checks Firestore
-// 4. If valid and unclaimed: claims it, stores token in localStorage, proceeds to app
-// 5. If already claimed by this browser: proceeds to app
-// 6. If claimed by someone else: rejected
-// 7. Next visit: localStorage token is checked, no code entry needed
+// Flow:
+//   1. Teacher generates unique codes via generate_codes.html (private tool)
+//   2. Student visits URL -> sees access code entry screen
+//   3. Student enters code + name -> app checks Firebase -> locks code to browser
+//   4. Next visit -> auto-recognised, no code needed
+//   5. Anyone else trying that code gets rejected
 //
-// Firestore structure:
-//   accessCodes/{CODE} = { claimed: false }                    -- unclaimed
-//   accessCodes/{CODE} = { claimed: true, claimedBy: "name",  -- claimed
-//                          claimedAt: "...", deviceToken: "..." }
+// The access code screen is shown BEFORE the normal welcome/app flow.
+// Once a code is verified and claimed, initApp() continues normally.
 
 "use strict";
 
 var AccessControl = {
-    TOKEN_KEY: "wace_access_token",
+    TOKEN_KEY: "wace_device_token",
     CODE_KEY: "wace_access_code",
     NAME_KEY: "wace_student_name",
 
     /**
-     * Check if the user already has a valid access token.
-     * Returns a Promise that resolves with { valid: true, code, name }
-     * or { valid: false }.
+     * Initialise access control. Returns a Promise that resolves with
+     * { granted: true } if the student already has a valid claimed code,
+     * or shows the access code screen and resolves { granted: false }
+     * (initApp will be re-called after successful code entry).
      */
-    checkExistingAccess: function() {
-        var token = localStorage.getItem(AccessControl.TOKEN_KEY);
-        var code = localStorage.getItem(AccessControl.CODE_KEY);
-        var name = localStorage.getItem(AccessControl.NAME_KEY);
-
-        if (!token || !code) {
-            return Promise.resolve({ valid: false });
+    init: function() {
+        // If Firebase is not enabled, skip access control entirely
+        if (!FIREBASE_ENABLED || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
+            return Promise.resolve({ granted: true });
         }
 
-        // Verify the token still matches what is in Firestore
-        var db = firebase.firestore();
-        return db.collection("accessCodes").doc(code.toUpperCase()).get()
-            .then(function(doc) {
-                if (!doc.exists) {
-                    AccessControl.clearLocal();
-                    return { valid: false };
-                }
-                var data = doc.data();
-                // Check if code has been disabled by teacher
-                if (data.disabled) {
-                    AccessControl.clearLocal();
-                    return { valid: false, disabled: true };
-                }
-                if (data.claimed && data.deviceToken === token) {
-                    return { valid: true, code: code, name: name || "" };
-                } else {
-                    // Token no longer valid -- clear it
-                    AccessControl.clearLocal();
-                    return { valid: false };
-                }
-            })
-            .catch(function(err) {
-                console.warn("AccessControl: Could not verify token online:", err.message);
-                // If offline but we have a local token, trust it
-                if (token && code) {
-                    return { valid: true, code: code, name: name || "" };
-                }
-                return { valid: false };
-            });
-    },
-
-    /**
-     * Attempt to claim an access code.
-     * Returns a Promise that resolves with:
-     *   { success: true }
-     *   { success: false, reason: "..." }
-     */
-    claimCode: function(code, studentName) {
-        code = code.toUpperCase().trim();
-        var db = firebase.firestore();
-        var codeRef = db.collection("accessCodes").doc(code);
-
-        // Generate a unique device token
-        var deviceToken = AccessControl._generateToken();
-
-        // Use a transaction to prevent race conditions
-        return db.runTransaction(function(transaction) {
-            return transaction.get(codeRef).then(function(doc) {
-                if (!doc.exists) {
-                    throw new Error("INVALID_CODE");
-                }
-
-                var data = doc.data();
-
-                if (data.disabled) {
-                    throw new Error("DISABLED");
-                }
-
-                if (data.claimed) {
-                    // Already claimed -- check if it is this device (re-activation)
-                    var existingToken = localStorage.getItem(AccessControl.TOKEN_KEY);
-                    if (data.deviceToken && data.deviceToken === existingToken) {
-                        // Same device re-claiming -- allow it
-                        return "ALREADY_MINE";
-                    }
-                    throw new Error("ALREADY_CLAIMED");
-                }
-
-                // Claim it
-                transaction.update(codeRef, {
-                    claimed: true,
-                    claimedBy: studentName,
-                    claimedAt: new Date().toISOString(),
-                    deviceToken: deviceToken
-                });
-
-                return deviceToken;
-            });
-        }).then(function(result) {
-            // Store locally
-            if (result === "ALREADY_MINE") {
-                // Keep existing token
-            } else {
-                localStorage.setItem(AccessControl.TOKEN_KEY, result);
-            }
-            localStorage.setItem(AccessControl.CODE_KEY, code);
-            localStorage.setItem(AccessControl.NAME_KEY, studentName);
-            return { success: true };
-        }).catch(function(err) {
-            if (err.message === "INVALID_CODE") {
-                return { success: false, reason: "That code is not valid. Check with your teacher." };
-            }
-            if (err.message === "DISABLED") {
-                return { success: false, reason: "That code has been disabled. Contact your teacher." };
-            }
-            if (err.message === "ALREADY_CLAIMED") {
-                return { success: false, reason: "That code has already been used by another student." };
-            }
-            console.error("AccessControl: Claim failed:", err);
-            return { success: false, reason: "Could not verify the code. Check your internet connection." };
-        });
-    },
-
-    /**
-     * Clear local access data (for logout/reset).
-     */
-    clearLocal: function() {
-        localStorage.removeItem(AccessControl.TOKEN_KEY);
-        localStorage.removeItem(AccessControl.CODE_KEY);
-        localStorage.removeItem(AccessControl.NAME_KEY);
-    },
-
-    /**
-     * Generate a random device token.
-     */
-    _generateToken: function() {
-        var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        var token = "";
-        for (var i = 0; i < 32; i++) {
-            token += chars.charAt(Math.floor(Math.random() * chars.length));
+        // Initialise Firebase if not already done
+        if (!firebase.apps.length) {
+            firebase.initializeApp(FIREBASE_CONFIG);
         }
-        return token;
-    },
 
-    // ========================================================================
-    // UI WIRING (called from initApp)
-    // ========================================================================
+        // Check if this browser already has a claimed code
+        var existingCode = localStorage.getItem(AccessControl.CODE_KEY);
+        var existingToken = localStorage.getItem(AccessControl.TOKEN_KEY);
 
-    /**
-     * Show the access code screen and wire up its events.
-     * Returns a Promise that resolves when a valid code is entered.
-     */
-    showCodeScreen: function() {
-        return new Promise(function(resolve) {
-            // Hide all screens, show access code screen
-            var screens = document.querySelectorAll(".screen");
-            for (var i = 0; i < screens.length; i++) {
-                screens[i].style.display = "none";
-            }
-            document.getElementById("access-code-screen").style.display = "flex";
-
-            // Set up the icon (reuse graduation cap)
-            var iconArea = document.getElementById("access-icon-area");
-            if (iconArea) {
-                iconArea.textContent = "\uD83D\uDD10"; // locked with key emoji
-            }
-
-            var input = document.getElementById("access-code-input");
-            var btn = document.getElementById("access-code-btn");
-            var errorEl = document.getElementById("access-code-error");
-
-            // Enable button when code is long enough
-            input.addEventListener("input", function() {
-                var val = input.value.trim();
-                btn.disabled = val.length < 6;
-                errorEl.style.display = "none";
-            });
-
-            // Handle enter key
-            input.addEventListener("keydown", function(e) {
-                if (e.key === "Enter" && !btn.disabled) {
-                    btn.click();
+        if (existingCode && existingToken) {
+            // Verify the code is still ours
+            return AccessControl._verifyCodeExists(existingCode).then(function(result) {
+                if (result.valid && result.alreadyMine) {
+                    console.log("AccessControl: Code verified, access granted");
+                    return { granted: true };
                 }
+                // Code was revoked or reassigned -- show code screen
+                localStorage.removeItem(AccessControl.CODE_KEY);
+                localStorage.removeItem(AccessControl.TOKEN_KEY);
+                AccessControl._showCodeScreen();
+                return { granted: false };
             });
+        }
 
-            // Handle verify button
-            btn.addEventListener("click", function() {
-                var code = input.value.trim().toUpperCase();
-                if (!code) return;
-
-                btn.disabled = true;
-                btn.textContent = "Verifying...";
-                errorEl.style.display = "none";
-
-                // We need a name -- show a quick prompt or use a two-step flow
-                // For simplicity, we will proceed to the welcome screen for the name
-                // after the code is verified. But we need to verify the code first.
-
-                // Temporarily claim with placeholder name -- will update after welcome screen
-                AccessControl._verifyCodeExists(code).then(function(result) {
-                    if (result.valid) {
-                        // Code exists and is unclaimed (or ours) -- proceed
-                        // Store code temporarily, full claim happens after name entry
-                        localStorage.setItem(AccessControl.CODE_KEY, code);
-                        resolve({ code: code, needsClaim: !result.alreadyMine });
-                    } else {
-                        errorEl.textContent = result.reason;
-                        errorEl.style.display = "block";
-                        btn.disabled = false;
-                        btn.textContent = "Verify Code";
-                    }
-                });
-            });
-
-            input.focus();
-        });
+        // No code stored -- show the access code entry screen
+        AccessControl._showCodeScreen();
+        return Promise.resolve({ granted: false });
     },
 
     /**
-     * Verify a code exists and is available (without claiming it yet).
+     * Show the access code entry screen and set up event listeners.
+     * @private
+     */
+    _showCodeScreen: function() {
+        var screen = document.getElementById("access-code-screen");
+        var input = document.getElementById("access-code-input");
+        var btn = document.getElementById("access-code-btn");
+        var errorEl = document.getElementById("access-code-error");
+        var iconArea = document.getElementById("access-icon-area");
+
+        if (!screen || !input || !btn) {
+            console.warn("AccessControl: Code screen elements not found, skipping");
+            initApp(); // Fallback -- proceed without access control
+            return;
+        }
+
+        // Set graduation cap icon
+        if (iconArea) iconArea.textContent = "\uD83C\uDF93";
+
+        screen.style.display = "flex";
+
+        // Enable button when input has content
+        input.addEventListener("input", function() {
+            btn.disabled = input.value.trim().length < 4;
+            if (errorEl) errorEl.textContent = "";
+        });
+
+        // Handle Enter key
+        input.addEventListener("keydown", function(e) {
+            if (e.key === "Enter" && !btn.disabled) {
+                btn.click();
+            }
+        });
+
+        // Handle submit
+        btn.addEventListener("click", function() {
+            var code = input.value.trim().toUpperCase();
+            btn.disabled = true;
+            btn.textContent = "Checking...";
+
+            AccessControl._verifyCodeExists(code).then(function(result) {
+                if (!result.valid) {
+                    if (errorEl) errorEl.textContent = result.reason;
+                    btn.disabled = false;
+                    btn.textContent = "Continue";
+                    return;
+                }
+
+                if (result.alreadyMine) {
+                    // Re-use existing claim
+                    localStorage.setItem(AccessControl.CODE_KEY, code);
+                    screen.style.display = "none";
+                    initApp();
+                    return;
+                }
+
+                // Generate a device token and store the code
+                var token = AccessControl._generateToken();
+                localStorage.setItem(AccessControl.TOKEN_KEY, token);
+                localStorage.setItem(AccessControl.CODE_KEY, code);
+
+                // Don't claim yet -- wait for the welcome screen name entry
+                // The code will be claimed when the student enters their name
+                screen.style.display = "none";
+                initApp();
+            });
+        });
+
+        // Focus the input
+        setTimeout(function() { input.focus(); }, 100);
+    },
+
+    /**
+     * Verify a code exists in Firestore and check if it is claimed.
+     * @private
      */
     _verifyCodeExists: function(code) {
         var db = firebase.firestore();
@@ -246,9 +144,6 @@ var AccessControl = {
                     return { valid: false, reason: "That code is not valid. Check with your teacher." };
                 }
                 var data = doc.data();
-                if (data.disabled) {
-                    return { valid: false, reason: "That code has been disabled. Contact your teacher." };
-                }
                 if (data.claimed) {
                     // Check if it is ours
                     var existingToken = localStorage.getItem(AccessControl.TOKEN_KEY);
@@ -275,5 +170,40 @@ var AccessControl = {
             return Promise.resolve({ success: true }); // No code system in use
         }
         return AccessControl.claimCode(code, studentName);
+    },
+
+    /**
+     * Claim a code -- mark it as used in Firestore with this device's token.
+     */
+    claimCode: function(code, studentName) {
+        var db = firebase.firestore();
+        var token = localStorage.getItem(AccessControl.TOKEN_KEY);
+
+        return db.collection("accessCodes").doc(code.toUpperCase()).update({
+            claimed: true,
+            deviceToken: token,
+            studentName: studentName,
+            claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function() {
+            localStorage.setItem(AccessControl.NAME_KEY, studentName);
+            console.log("AccessControl: Code " + code + " claimed by " + studentName);
+            return { success: true };
+        }).catch(function(err) {
+            console.error("AccessControl: Claim failed:", err);
+            return { success: false, reason: "Could not register your code. Try again." };
+        });
+    },
+
+    /**
+     * Generate a random device token.
+     * @private
+     */
+    _generateToken: function() {
+        var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var token = "";
+        for (var i = 0; i < 32; i++) {
+            token += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return token;
     }
 };

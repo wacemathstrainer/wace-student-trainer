@@ -1,21 +1,13 @@
+# Teacher-only tools (never push to GitHub)
+generate_codes.html
+firestore_rules_reference.js
+bundle_for_cloud.py
+
 # OS files
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Editor files
-*.swp
-*.swo
-*~
+# IDE
 .vscode/
-
-# Python
-__pycache__/
-*.pyc
-
-# Node (not used, but just in case)
-node_modules/
-
-# Local backups
-*.bak
-*.backup
+.idea/
