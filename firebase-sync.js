@@ -49,6 +49,11 @@ var FirebaseSync = {
         return FirebaseSync.auth.signInAnonymously().then(function() {
             console.log("FirebaseSync: Authenticated, student ID: " + FirebaseSync.studentId);
 
+            // Retry any pending access code claims
+            if (typeof AccessControl !== "undefined" && AccessControl.retryPendingClaim) {
+                AccessControl.retryPendingClaim();
+            }
+
             // Pull latest data from Firestore and merge into IndexedDB
             return FirebaseSync._pullFromCloud();
         }).catch(function(err) {

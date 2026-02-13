@@ -8,8 +8,10 @@
 //   4. Next visit -> auto-recognised, no code needed
 //   5. Anyone else trying that code gets rejected
 //
-// The access code screen is shown BEFORE the normal welcome/app flow.
-// Once a code is verified and claimed, initApp() continues normally.
+// FALLBACK: If Firebase is unreachable (school network blocks it), the app
+// still works in local-only mode after a short timeout. The student enters
+// their name, gets full personalised experience via IndexedDB, but progress
+// won't sync to the teacher dashboard until Firebase becomes available.
 
 "use strict";
 
@@ -17,6 +19,41 @@ var AccessControl = {
     TOKEN_KEY: "wace_device_token",
     CODE_KEY: "wace_access_code",
     NAME_KEY: "wace_student_name",
+    TIMEOUT_MS: 4000,         // How long to wait for Firebase before falling back
+    firebaseAvailable: false, // Set to true once Firebase responds successfully
+
+    /**
+     * Race a promise against a timeout. Returns whichever resolves first.
+     * @private
+     */
+    _withTimeout: function(promise, ms, fallbackValue) {
+        return new Promise(function(resolve) {
+            var done = false;
+            var timer = setTimeout(function() {
+                if (!done) {
+                    done = true;
+                    console.warn("AccessControl: Firebase timeout after " + ms + "ms, falling back");
+                    resolve(fallbackValue);
+                }
+            }, ms);
+
+            promise.then(function(result) {
+                if (!done) {
+                    done = true;
+                    clearTimeout(timer);
+                    AccessControl.firebaseAvailable = true;
+                    resolve(result);
+                }
+            }).catch(function(err) {
+                if (!done) {
+                    done = true;
+                    clearTimeout(timer);
+                    console.warn("AccessControl: Firebase error, falling back:", err.message);
+                    resolve(fallbackValue);
+                }
+            });
+        });
+    },
 
     /**
      * Initialise access control. Returns a Promise that resolves with
@@ -38,12 +75,22 @@ var AccessControl = {
         // Check if this browser already has a claimed code
         var existingCode = localStorage.getItem(AccessControl.CODE_KEY);
         var existingToken = localStorage.getItem(AccessControl.TOKEN_KEY);
+        var existingName = localStorage.getItem(AccessControl.NAME_KEY);
 
         if (existingCode && existingToken) {
-            // Verify the code is still ours
-            return AccessControl._verifyCodeExists(existingCode).then(function(result) {
+            // Try to verify with Firebase, but fall back after timeout
+            var verifyPromise = AccessControl._verifyCodeExists(existingCode);
+            return AccessControl._withTimeout(
+                verifyPromise,
+                AccessControl.TIMEOUT_MS,
+                { valid: true, alreadyMine: true, offline: true }
+            ).then(function(result) {
                 if (result.valid && result.alreadyMine) {
-                    console.log("AccessControl: Code verified, access granted");
+                    if (result.offline) {
+                        console.log("AccessControl: Firebase unreachable, granting access from local storage");
+                    } else {
+                        console.log("AccessControl: Code verified online, access granted");
+                    }
                     return { granted: true };
                 }
                 // Code was revoked or reassigned -- show code screen
@@ -52,6 +99,12 @@ var AccessControl = {
                 AccessControl._showCodeScreen();
                 return { granted: false };
             });
+        }
+
+        // If we have a stored name but no code (local-only session), let them in
+        if (existingName) {
+            console.log("AccessControl: Returning local-only user: " + existingName);
+            return Promise.resolve({ granted: true });
         }
 
         // No code stored -- show the access code entry screen
@@ -100,7 +153,14 @@ var AccessControl = {
             btn.disabled = true;
             btn.textContent = "Checking...";
 
-            AccessControl._verifyCodeExists(code).then(function(result) {
+            // Try Firebase with timeout fallback
+            var verifyPromise = AccessControl._verifyCodeExists(code);
+            AccessControl._withTimeout(
+                verifyPromise,
+                AccessControl.TIMEOUT_MS,
+                { valid: true, alreadyMine: false, offline: true }
+            ).then(function(result) {
+                // Firebase responded and code is invalid
                 if (!result.valid) {
                     if (errorEl) errorEl.textContent = result.reason;
                     btn.disabled = false;
@@ -116,13 +176,17 @@ var AccessControl = {
                     return;
                 }
 
-                // Generate a device token and store the code
+                // New code entry (online or offline fallback)
                 var token = AccessControl._generateToken();
                 localStorage.setItem(AccessControl.TOKEN_KEY, token);
                 localStorage.setItem(AccessControl.CODE_KEY, code);
 
-                // Don't claim yet -- wait for the welcome screen name entry
-                // The code will be claimed when the student enters their name
+                if (result.offline) {
+                    // Firebase unreachable -- store code locally, will claim later
+                    console.log("AccessControl: Stored code locally (will claim when Firebase available)");
+                    localStorage.setItem("wace_pending_claim", "true");
+                }
+
                 screen.style.display = "none";
                 initApp();
             });
@@ -163,13 +227,22 @@ var AccessControl = {
     /**
      * Complete the claim after the student enters their name on the welcome screen.
      * This is called from the welcome screen submit handler.
+     * Also handles pending claims from offline sessions.
      */
     completeClaim: function(studentName) {
+        localStorage.setItem(AccessControl.NAME_KEY, studentName);
+
         var code = localStorage.getItem(AccessControl.CODE_KEY);
         if (!code) {
             return Promise.resolve({ success: true }); // No code system in use
         }
-        return AccessControl.claimCode(code, studentName);
+
+        // Try to claim (will silently fail if Firebase is unreachable)
+        return AccessControl.claimCode(code, studentName).catch(function() {
+            // Mark as pending -- will retry next time Firebase is available
+            localStorage.setItem("wace_pending_claim", "true");
+            return { success: true }; // Don't block the student
+        });
     },
 
     /**
@@ -185,13 +258,27 @@ var AccessControl = {
             studentName: studentName,
             claimedAt: firebase.firestore.FieldValue.serverTimestamp()
         }).then(function() {
-            localStorage.setItem(AccessControl.NAME_KEY, studentName);
+            localStorage.removeItem("wace_pending_claim");
             console.log("AccessControl: Code " + code + " claimed by " + studentName);
             return { success: true };
         }).catch(function(err) {
             console.error("AccessControl: Claim failed:", err);
             return { success: false, reason: "Could not register your code. Try again." };
         });
+    },
+
+    /**
+     * Retry any pending claims (called during app init when Firebase connects).
+     */
+    retryPendingClaim: function() {
+        var pending = localStorage.getItem("wace_pending_claim");
+        var code = localStorage.getItem(AccessControl.CODE_KEY);
+        var name = localStorage.getItem(AccessControl.NAME_KEY);
+
+        if (pending && code && name) {
+            console.log("AccessControl: Retrying pending claim for " + code);
+            AccessControl.claimCode(code, name);
+        }
     },
 
     /**
