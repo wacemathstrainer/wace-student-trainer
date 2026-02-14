@@ -658,8 +658,9 @@ var WrittenMode = {
 
             q.parts.forEach(function(part, idx) {
                 var isDrawOn = StudyUI._isDrawOnPart(part);
-                var partInfo = "Part (" + part.partLabel + ") \u2014 " + part.partMarks + " marks\n" +
-                    "Question: " + part.questionText + "\n\n";
+                var partDisplayLabel = part._displayLabel || ("(" + part.partLabel + ")");
+                var partInfo = "Part " + partDisplayLabel + " \u2014 " + part.partMarks + " marks\n" +
+                    "Question: " + (part.questionText || part.stimulus || '') + "\n\n";
 
                 if (isDrawOn) {
                     partInfo += "NOTE: This is a VISUAL/GRAPHICAL question. The student drew their answer " +
@@ -869,8 +870,9 @@ var WrittenMode = {
             else if (partResult.totalAwarded > 0) scoreClass = "partial";
 
             html += '<div class="wm-part-result-header">';
-            html += '<span class="wm-part-result-label">Part (' +
-                StudyUI._escapeHtml(questionPart.partLabel) + ')</span>';
+            html += '<span class="wm-part-result-label">Part ' +
+                (questionPart._displayLabel || ('(' + StudyUI._escapeHtml(questionPart.partLabel) + ')')) +
+                '</span>';
             html += '<span class="wm-part-result-score ' + scoreClass + '">' +
                 partResult.totalAwarded + ' / ' + partResult.totalAvailable + '</span>';
             html += '</div>';

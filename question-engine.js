@@ -31,6 +31,9 @@ var QuestionEngine = {
             QuestionEngine.questionIndex = QUESTION_INDEX;
         }
 
+        // Flatten subparts into parts so the pipeline handles (a)(i), (a)(ii) etc.
+        QuestionEngine._flattenAllSubparts();
+
         // Extract all known problem types from questions
         QuestionEngine.allProblemTypes = QuestionEngine._extractAllProblemTypes();
         console.log("QuestionEngine: Found " +
@@ -51,7 +54,8 @@ var QuestionEngine = {
         });
         if (count > 0) {
             console.log("QuestionEngine: Merged " + count + " imported questions");
-            // Recompute problem types after merge
+            // Flatten subparts and recompute problem types after merge
+            QuestionEngine._flattenAllSubparts();
             QuestionEngine.allProblemTypes = QuestionEngine._extractAllProblemTypes();
         }
     },
@@ -179,6 +183,79 @@ var QuestionEngine = {
             else if (pool === "practice") practice++;
         });
         return { original: original, practice: practice, total: keys.length };
+    },
+
+    /**
+     * Flatten subparts across all loaded questions.
+     * Turns nested subparts (a)(i),(a)(ii) into flat parts for the pipeline.
+     * @private
+     */
+    _flattenAllSubparts: function() {
+        var keys = Object.keys(QuestionEngine.allQuestions);
+        var count = 0;
+        keys.forEach(function(k) {
+            if (QuestionEngine._flattenQuestionSubparts(QuestionEngine.allQuestions[k])) {
+                count++;
+            }
+        });
+        if (count > 0) {
+            console.log("QuestionEngine: Flattened subparts in " + count + " questions");
+        }
+    },
+
+    /**
+     * Flatten subparts for a single question.
+     * Parts like (a) with subparts (i),(ii) become separate entries
+     * with compound labels like "a-i", "a-ii".
+     * @private
+     * @returns {boolean} true if flattening occurred
+     */
+    _flattenQuestionSubparts: function(q) {
+        if (!q || !q.parts) return false;
+        var needsFlatten = q.parts.some(function(p) {
+            return p.subparts && p.subparts.length > 0;
+        });
+        if (!needsFlatten) return false;
+
+        // Question-level topic fallbacks from topicsAggregate
+        var agg = q.topicsAggregate || {};
+        var qTopic = (agg.topics && agg.topics[0]) || "";
+        var qSubtopic = (agg.subtopics && agg.subtopics[0]) || "";
+        var qConcept = (agg.conceptCategories && agg.conceptCategories[0]) || "";
+        var qProblemType = (agg.problemTypes && agg.problemTypes[0]) || "";
+
+        var flat = [];
+        q.parts.forEach(function(part) {
+            if (part.subparts && part.subparts.length > 0) {
+                part.subparts.forEach(function(sp, spIdx) {
+                    flat.push({
+                        partLabel: part.partLabel + "-" + sp.subpartLabel,
+                        _displayLabel: "(" + part.partLabel + ")(" + sp.subpartLabel + ")",
+                        partMarks: sp.subpartMarks || 0,
+                        questionText: sp.questionText || "",
+                        stimulus: sp.stimulus || "",
+                        originalSolution: sp.originalSolution || [],
+                        marking: sp.marking || [],
+                        guidedSolution: sp.guidedSolution || "",
+                        diagramsNeeded: sp.diagramsNeeded || {},
+                        formOfQuestion: sp.formOfQuestion || "",
+                        _isSubpart: true,
+                        _isFirstSubpart: spIdx === 0,
+                        _parentLabel: part.partLabel,
+                        _parentStimulus: part.stimulus || "",
+                        _parentMarks: part.partMarks,
+                        topic: sp.topic || part.topic || qTopic,
+                        subtopic: sp.subtopic || part.subtopic || qSubtopic,
+                        conceptCategory: sp.conceptCategory || part.conceptCategory || qConcept,
+                        problemType: sp.problemType || part.problemType || qProblemType
+                    });
+                });
+            } else {
+                flat.push(part);
+            }
+        });
+        q.parts = flat;
+        return true;
     },
 
     /**

@@ -259,12 +259,13 @@ var StudyUI = {
     renderQuestion: function(questionInfo) {
         StudyUI.currentFilename = questionInfo.filename;
         StudyUI.currentQuestion = questionInfo.questionData;
+
         StudyUI.partResults = {};
         StudyUI.guidedAccessedThisQuestion = false;
         StudyUI.assessedParts = 0;
         StudyUI._resultsRecorded = false;
-        StudyUI.totalParts = questionInfo.questionData.parts ?
-            questionInfo.questionData.parts.length : 0;
+        StudyUI.totalParts = StudyUI.currentQuestion.parts ?
+            StudyUI.currentQuestion.parts.length : 0;
 
         // Track this question in exam mode (for previous/next navigation)
         if (ExamMode.active && ExamMode.state === "running") {
@@ -363,26 +364,47 @@ var StudyUI = {
         // Parts
         if (q.parts) {
             q.parts.forEach(function(part, idx) {
-                html += '<div class="question-part" data-part-index="' + idx + '">';
+                var partClass = 'question-part';
+                if (part._isSubpart) partClass += ' question-subpart';
+
+                html += '<div class="' + partClass + '" data-part-index="' + idx + '">';
+
+                // Show parent stimulus before first subpart
+                if (part._isFirstSubpart && part._parentStimulus) {
+                    html += '<div class="subpart-parent-stimulus">' +
+                        StudyUI._escapeHtml(part._parentStimulus) + '</div>';
+                }
+
                 html += '<div class="part-header">';
-                html += '<span class="part-label">(' + StudyUI._escapeHtml(part.partLabel) +
-                    ')</span>';
+                var displayLabel = part._displayLabel ||
+                    ('(' + StudyUI._escapeHtml(part.partLabel) + ')');
+                html += '<span class="part-label">' + displayLabel + '</span>';
                 html += '<span class="part-marks">[' + part.partMarks + ' mark' +
                     (part.partMarks !== 1 ? 's' : '') + ']</span>';
                 html += '</div>';
-                html += '<div class="part-text">' +
-                    StudyUI._escapeHtml(part.questionText) + '</div>';
+                var partText = part.questionText || part.stimulus || '';
+                if (partText) {
+                    html += '<div class="part-text">' +
+                        StudyUI._escapeHtml(partText) + '</div>';
+                } else if (!part.marking || part.marking.length === 0) {
+                    html += '<div class="part-text part-text-missing">' +
+                        '<em>Question data not available for this part.</em></div>';
+                }
 
                 // Part-level diagrams (from diagramPlaceholders + diagramsNeeded)
-                var partLabel = part.partLabel;
-                var partDiags = qDiagrams.filter(function(d) {
-                    // Match diagrams referencing this part, e.g. "Parta)_IMG" or "Parta)Stem"
-                    // but exclude stem-only diagrams already shown above
-                    if (d.indexOf("PartStem") !== -1) return false;
-                    if (d.indexOf("_Stem") !== -1 && d.indexOf("Part" + partLabel) === -1) return false;
-                    return d.indexOf("Part" + partLabel + ")") !== -1 ||
-                           d.indexOf("Part" + partLabel + "_") !== -1;
-                });
+                // For subparts, show parent diagrams only on the first subpart
+                var diagLabel = part._isSubpart ? part._parentLabel : part.partLabel;
+                var partDiags = [];
+                if (!part._isSubpart || part._isFirstSubpart) {
+                    partDiags = qDiagrams.filter(function(d) {
+                        // Match diagrams referencing this part, e.g. "Parta)_IMG" or "Parta)Stem"
+                        // but exclude stem-only diagrams already shown above
+                        if (d.indexOf("PartStem") !== -1) return false;
+                        if (d.indexOf("_Stem") !== -1 && d.indexOf("Part" + diagLabel) === -1) return false;
+                        return d.indexOf("Part" + diagLabel + ")") !== -1 ||
+                               d.indexOf("Part" + diagLabel + "_") !== -1;
+                    });
+                }
                 // Also include part.diagramsNeeded.placeholders (rare but exists)
                 var partPlaceholders = (part.diagramsNeeded && part.diagramsNeeded.placeholders) || [];
                 partPlaceholders.forEach(function(p) {
@@ -711,9 +733,9 @@ var StudyUI = {
             // Main content (left side when guided is shown)
             html += '<div class="solution-part-main" id="sol-main-' + partIdx + '">';
 
-            html += '<h4 class="solution-part-header">Part (' +
-                StudyUI._escapeHtml(part.partLabel) + ') ' +
-                SYMBOLS.BULLET + ' ' + part.partMarks + ' mark' +
+            html += '<h4 class="solution-part-header">Part ' +
+                (part._displayLabel || ('(' + StudyUI._escapeHtml(part.partLabel) + ')')) +
+                ' ' + SYMBOLS.BULLET + ' ' + part.partMarks + ' mark' +
                 (part.partMarks !== 1 ? 's' : '') + '</h4>';
 
             // Numbered solution lines
@@ -1717,10 +1739,12 @@ var StudyUI = {
      * @private
      */
     _isDrawOnPart: function(part) {
-        if (!part || !part.questionText) return false;
+        if (!part) return false;
+        var text = part.questionText || part.stimulus || '';
+        if (!text) return false;
         return /sketch|draw|on the axes|on the graph|shade|complete the table|fill in.*table|complete the following table/i
-            .test(part.questionText) &&
-            /\[IMAGE:\s*[^\]]+\]/.test(part.questionText);
+            .test(text) &&
+            /\[IMAGE:\s*[^\]]+\]/.test(text);
     },
 
     /**
@@ -1729,8 +1753,10 @@ var StudyUI = {
      * @private
      */
     _getDrawOnImage: function(part) {
-        if (!part || !part.questionText) return null;
-        var match = part.questionText.match(/\[IMAGE:\s*([^\]]+)\]/);
+        if (!part) return null;
+        var text = part.questionText || part.stimulus || '';
+        if (!text) return null;
+        var match = text.match(/\[IMAGE:\s*([^\]]+)\]/);
         return match ? match[1].trim() : null;
     },
 
