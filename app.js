@@ -1041,6 +1041,7 @@ var SessionEngine = {
     sectionFilter: "mix",     // "CA", "CF", or "mix"
     wrongListOnly: false,     // true = only serve wrong list questions
     answerMethod: "paper",    // "paper" or "stylus"
+    markingMode: "instant",   // "instant" or "exam"
     sessionGoal: 10,
     startTime: null,
 
@@ -1080,6 +1081,7 @@ var SessionEngine = {
         SessionEngine.sectionFilter = opts.sectionFilter || "mix";
         SessionEngine.wrongListOnly = !!opts.wrongListOnly;
         SessionEngine.answerMethod = opts.answerMethod || "paper";
+        SessionEngine.markingMode = opts.markingMode || "instant";
         SessionEngine.startTime = new Date();
         SessionEngine.freshCount = 0;
         SessionEngine.totalCount = 0;
@@ -1102,6 +1104,7 @@ var SessionEngine = {
             sectionFilter: SessionEngine.sectionFilter,
             wrongListOnly: SessionEngine.wrongListOnly,
             answerMethod: SessionEngine.answerMethod,
+            markingMode: SessionEngine.markingMode,
             questionsAttempted: 0,
             partsAttempted: 0,
             partsCorrect: 0,
@@ -1520,6 +1523,13 @@ var WrittenMode = {
     getApiKey: function() {
         if (typeof TAUGHT_SCHEDULE !== "undefined" && TAUGHT_SCHEDULE.apiKey) {
             return TAUGHT_SCHEDULE.apiKey;
+        }
+        return "";
+    },
+
+    getSympyEndpoint: function() {
+        if (typeof TAUGHT_SCHEDULE !== "undefined" && TAUGHT_SCHEDULE.sympyEndpoint) {
+            return TAUGHT_SCHEDULE.sympyEndpoint;
         }
         return "";
     },
@@ -2020,7 +2030,11 @@ var WrittenMode = {
 
             var cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
             var result = JSON.parse(cleaned);
-            WrittenMode.displayResults(result);
+
+            // Run SymPy verification (graceful — returns null if unavailable)
+            WrittenMode._runSympyVerification(result).then(function(sympyData) {
+                WrittenMode.displayResults(result, sympyData);
+            });
         })
         .catch(function(err) {
             if (overlay) overlay.classList.add("wm-hidden");
@@ -2041,7 +2055,7 @@ var WrittenMode = {
 
     // ---- DISPLAY RESULTS ----
 
-    displayResults: function(result) {
+    displayResults: function(result, sympyData) {
         var q = StudyUI.currentQuestion;
         if (!q) return;
 
@@ -2051,6 +2065,7 @@ var WrittenMode = {
 
         // Store result for overrides
         window._wmMarkingResult = result;
+        window._wmSympyData = sympyData || null;
 
         var container = document.getElementById("wm-results-container");
         if (!container) return;
@@ -2078,6 +2093,21 @@ var WrittenMode = {
             html += '<div class="wm-all-correct">';
             html += '<div class="wm-all-correct-icon">\uD83C\uDF89</div>';
             html += '<div class="wm-all-correct-text">All correct! Perfect score.</div>';
+            html += '</div>';
+        }
+
+        // SymPy verification summary
+        if (sympyData && sympyData.totalChecks > 0) {
+            var vClass = sympyData.disagreements > 0 ? "wm-sympy-summary warn" : "wm-sympy-summary ok";
+            html += '<div class="' + vClass + '">';
+            if (sympyData.disagreements > 0) {
+                html += '<span class="wm-sympy-summary-icon">\u26A0\uFE0F</span>';
+                html += '<span>SymPy verified ' + sympyData.agreements + '/' + sympyData.totalChecks +
+                    ' checks \u2014 ' + sympyData.disagreements + ' flagged for review</span>';
+            } else {
+                html += '<span class="wm-sympy-summary-icon">\u2705</span>';
+                html += '<span>SymPy verified all ' + sympyData.agreements + ' mathematical checks</span>';
+            }
             html += '</div>';
         }
 
@@ -2125,12 +2155,28 @@ var WrittenMode = {
                         hintHtml = '<span class="wm-override-hint">\u2190 tap if AI misread</span>';
                     }
 
+                    // SymPy verification badge
+                    var verifyBadge = "";
+                    if (sympyData && sympyData.perCriterion) {
+                        var vKey = questionPart.partLabel + "-" + mark.criterionIndex;
+                        var vResult = sympyData.perCriterion[vKey];
+                        if (vResult) {
+                            if (vResult.status === "verified") {
+                                verifyBadge = '<span class="wm-sympy-badge verified" title="' +
+                                    StudyUI._escapeHtml(vResult.details) + '">\u2713 verified</span>';
+                            } else if (vResult.status === "disagree") {
+                                verifyBadge = '<span class="wm-sympy-badge disagree" title="' +
+                                    StudyUI._escapeHtml(vResult.details) + '">\u26A0\uFE0F check</span>';
+                            }
+                        }
+                    }
+
                     html += '<div class="wm-marking-row ' + passClass + '" id="wm-mark-' + idx + '-' + markIdx + '"' + clickAttr + '>';
                     html += '<div class="wm-mark-icon">' + icon + '</div>';
                     html += '<div class="wm-mark-detail">';
                     html += '<div class="wm-mark-text">' + StudyUI._escapeHtml(criterion.text) +
                         ' [' + criterion.awarded + ']' + hintHtml +
-                        '<span class="wm-override-label">overridden</span></div>';
+                        '<span class="wm-override-label">overridden</span>' + verifyBadge + '</div>';
                     if (mark.reason) {
                         html += '<div class="wm-mark-reason">' + mark.reason + '</div>';
                     }
@@ -2445,9 +2491,33 @@ var WrittenMode = {
             '      "errorType": "execution",\n' +
             '      "skillDiagnosis": "1-2 sentence diagnosis with \\\\(LaTeX\\\\) for any math",\n' +
             '      "notationFeedback": {"correct": false, "message": "explanation with \\\\(LaTeX\\\\) for math parts"}\n' +
+            '    }\n  ],\n' +
+            '  "sympyChecks": [\n' +
+            '    {\n' +
+            '      "type": "derivative|indefinite_integral|definite_integral|follow_through|simplification|substitution",\n' +
+            '      "partLabel": "a",\n' +
+            '      "criterionIndex": 0,\n' +
+            '      "original": "x**5 - 3*x**2",\n' +
+            '      "student_answer": "5*x**4 - 6*x",\n' +
+            '      "variable": "x",\n' +
+            '      "lower": 0,\n' +
+            '      "upper": 2\n' +
             '    }\n  ]\n}\n\n' +
 
             "CRITICAL RULES:\n\n" +
+
+            "SYMPY VERIFICATION CHECKS:\n" +
+            "Generate a 'sympyChecks' array with entries for each mathematically verifiable step. " +
+            "Use Python/SymPy notation (** for power, * for multiply). Include partLabel and criterionIndex " +
+            "so results can be matched to specific marking criteria. Types:\n" +
+            "- 'derivative': {original, student_answer, variable} \u2014 checks d/dx(original) == student_answer\n" +
+            "- 'indefinite_integral': {original, student_answer, variable} \u2014 checks antiderivative\n" +
+            "- 'definite_integral': {original, student_answer, variable, lower, upper} \u2014 checks definite integral value\n" +
+            "- 'follow_through': {student_expr, variable, lower, upper, student_result} \u2014 checks student's arithmetic is internally consistent\n" +
+            "- 'simplification': {original, simplified} \u2014 checks algebraic equivalence\n" +
+            "- 'substitution': {expression, variable, value, expected_result} \u2014 checks substitution result\n" +
+            "Only include checks for steps where the student actually wrote mathematical expressions. " +
+            "If the student wrote nothing or only text, omit sympyChecks or leave it empty.\n\n" +
 
             "ANTI-HALLUCINATION \u2014 DO NOT INVENT STUDENT WORK:\n" +
             "- You MUST mark ONLY what is visibly written on the canvas. " +
@@ -2522,6 +2592,73 @@ var WrittenMode = {
             "OTHER: errorLine is 1-indexed. errorType is setup/execution/interpretation/misread/null. JSON only, no markdown.";
     },
 
+    // ---- SYMPY VERIFICATION ----
+
+    /**
+     * Call the SymPy cloud function to verify AI marking.
+     * Returns a promise that resolves with verification data, or null on failure.
+     * Graceful fallback: if endpoint is not configured or fails, returns null silently.
+     */
+    _runSympyVerification: function(aiResult) {
+        var endpoint = WrittenMode.getSympyEndpoint();
+        if (!endpoint) return Promise.resolve(null);
+
+        var checks = aiResult.sympyChecks;
+        if (!checks || !Array.isArray(checks) || checks.length === 0) {
+            return Promise.resolve(null);
+        }
+
+        return fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ checks: checks })
+        })
+        .then(function(resp) {
+            if (!resp.ok) return null;
+            return resp.json();
+        })
+        .then(function(data) {
+            if (!data || !data.verification_results) return null;
+            return WrittenMode._mergeSympyResults(aiResult, data.verification_results);
+        })
+        .catch(function(err) {
+            console.warn("SymPy verification unavailable:", err.message);
+            return null;
+        });
+    },
+
+    /**
+     * Merge SymPy verification results into the AI marking result.
+     * Adds a `sympyVerified` field to each marking criterion.
+     * Returns a verification summary object.
+     */
+    _mergeSympyResults: function(aiResult, verificationResults) {
+        var summary = {
+            totalChecks: verificationResults.length,
+            agreements: 0,
+            disagreements: 0,
+            inconclusive: 0,
+            perCriterion: {} // keyed by "partLabel-criterionIndex"
+        };
+
+        verificationResults.forEach(function(v) {
+            var key = (v.partLabel || "?") + "-" + (v.criterionIndex !== undefined ? v.criterionIndex : "?");
+
+            if (v.correct === null || v.correct === undefined) {
+                summary.inconclusive++;
+                summary.perCriterion[key] = { status: "inconclusive", details: v.details || "" };
+            } else if (v.correct === true || v.match === true) {
+                summary.agreements++;
+                summary.perCriterion[key] = { status: "verified", details: v.details || "" };
+            } else {
+                summary.disagreements++;
+                summary.perCriterion[key] = { status: "disagree", details: v.details || "" };
+            }
+        });
+
+        return summary;
+    },
+
     // ---- INIT ----
 
     init: function() {
@@ -2546,9 +2683,968 @@ var WrittenMode = {
 
 
 // ============================================================================
-// UI MODULE
-// Handles tab switching, welcome screen, settings, and rendering helpers.
+// EXAM MODE MODULE
+// Handles timed exam simulation: global timer, question navigation without
+// feedback, canvas snapshot storage, batch marking, and results display.
+// Works with both Stylus and Paper answer methods.
 // ============================================================================
+var ExamMode = {
+    // State
+    active: false,
+    state: "inactive",  // "inactive" | "running" | "marking" | "results"
+
+    // Exam config
+    targetMarks: 50,
+    totalSeconds: 0,
+    remainingSeconds: 0,
+    timerInterval: null,
+
+    // Question tracking
+    testAnswers: [],       // Array of { questionIndex, questionData, filename, partImages, timeSpent }
+    questionStartTime: null,
+    currentExamIndex: 0,   // 0-based index of current question in this exam
+    totalExamQuestions: 0,  // filled as we go (we don't know total upfront)
+    accumulatedMarks: 0,   // running total of marks queued
+
+    // ---- TIME CALCULATION ----
+
+    /**
+     * Calculate exam time in seconds from total marks.
+     * Formula: 20s base + 35s per mark (calculation), 25s base + 50s per mark (context).
+     * Uses a blended average: 22s base + 40s per mark.
+     */
+    calcTime: function(totalMarks) {
+        return Math.round(22 + 40 * totalMarks);
+    },
+
+    /**
+     * Format seconds as mm:ss.
+     */
+    formatTime: function(secs) {
+        var m = Math.floor(Math.abs(secs) / 60);
+        var s = Math.abs(secs) % 60;
+        var prefix = secs < 0 ? "+" : "";
+        return prefix + m + ":" + (s < 10 ? "0" : "") + s;
+    },
+
+    // ---- EXAM LIFECYCLE ----
+
+    /**
+     * Start an exam. Called after SessionEngine.start() completes.
+     * @param {number} targetMarks - total mark target for this exam
+     */
+    start: function(targetMarks) {
+        ExamMode.active = true;
+        ExamMode.state = "running";
+        ExamMode.targetMarks = targetMarks;
+        ExamMode.totalSeconds = ExamMode.calcTime(targetMarks);
+        ExamMode.remainingSeconds = ExamMode.totalSeconds;
+        ExamMode.testAnswers = [];
+        ExamMode.currentExamIndex = 0;
+        ExamMode.totalExamQuestions = 0;
+        ExamMode.accumulatedMarks = 0;
+        ExamMode.questionStartTime = Date.now();
+
+        // Start the global countdown timer
+        ExamMode.startTimer();
+    },
+
+    /**
+     * Start (or restart) the global exam countdown timer.
+     */
+    startTimer: function() {
+        if (ExamMode.timerInterval) clearInterval(ExamMode.timerInterval);
+
+        ExamMode.timerInterval = setInterval(function() {
+            ExamMode.remainingSeconds--;
+            ExamMode.updateTimerDisplay();
+
+            if (ExamMode.remainingSeconds <= 0) {
+                ExamMode.timeUp();
+            }
+        }, 1000);
+    },
+
+    /**
+     * Update the exam timer display in the bottom bar.
+     */
+    updateTimerDisplay: function() {
+        var display = document.getElementById("exam-timer-display");
+        if (!display) return;
+
+        display.textContent = ExamMode.formatTime(ExamMode.remainingSeconds);
+
+        var bar = document.getElementById("exam-bottom-bar");
+        if (!bar) return;
+
+        // Warning colours
+        if (ExamMode.remainingSeconds <= 60) {
+            bar.className = "exam-bottom-bar exam-timer-critical";
+        } else if (ExamMode.remainingSeconds <= 300) {
+            bar.className = "exam-bottom-bar exam-timer-warning";
+        } else {
+            bar.className = "exam-bottom-bar";
+        }
+    },
+
+    /**
+     * Handle timer reaching zero.
+     */
+    timeUp: function() {
+        clearInterval(ExamMode.timerInterval);
+        ExamMode.timerInterval = null;
+
+        // Show Time's Up overlay briefly
+        var overlay = document.getElementById("exam-times-up-overlay");
+        if (overlay) overlay.style.display = "flex";
+
+        // Snapshot current question if stylus
+        ExamMode.snapshotCurrentQuestion();
+
+        // After a brief delay, begin marking
+        setTimeout(function() {
+            if (overlay) overlay.style.display = "none";
+            ExamMode.endTest();
+        }, 2000);
+    },
+
+    /**
+     * Snapshot the current question's canvas images (stylus mode) and store.
+     */
+    snapshotCurrentQuestion: function() {
+        var q = StudyUI.currentQuestion;
+        var fn = StudyUI.currentFilename;
+        if (!q) return;
+
+        var partImages = {};
+        var timeSpent = (Date.now() - ExamMode.questionStartTime) / 1000;
+
+        if (SessionEngine.answerMethod === "stylus" && q.parts) {
+            q.parts.forEach(function(part) {
+                var dataUrl = WrittenMode.CanvasEngine.exportPNG(part.partLabel);
+                if (dataUrl) {
+                    partImages[part.partLabel] = dataUrl;
+                }
+            });
+        }
+
+        ExamMode.testAnswers.push({
+            questionIndex: ExamMode.currentExamIndex,
+            questionData: q,
+            filename: fn,
+            partImages: partImages,
+            timeSpent: Math.round(timeSpent),
+            totalMarks: q.totalMarks || 0
+        });
+    },
+
+    /**
+     * Move to the next question in exam mode.
+     * Snapshots current canvas, clears, loads next question.
+     */
+    nextQuestion: function() {
+        // Snapshot current question
+        ExamMode.snapshotCurrentQuestion();
+        ExamMode.currentExamIndex++;
+        ExamMode.questionStartTime = Date.now();
+
+        // Check if we've accumulated enough marks
+        var totalMarksSoFar = 0;
+        ExamMode.testAnswers.forEach(function(ta) {
+            totalMarksSoFar += ta.totalMarks;
+        });
+        ExamMode.accumulatedMarks = totalMarksSoFar;
+
+        if (totalMarksSoFar >= ExamMode.targetMarks) {
+            // We have enough marks, show "exam complete" option
+            ExamMode._loadNextOrFinish();
+            return;
+        }
+
+        // Load next question through normal SessionEngine
+        SessionEngine.getNext().then(function(result) {
+            if (!result) {
+                // No more questions available
+                ExamMode.endTest();
+                return;
+            }
+            ExamMode.totalExamQuestions = ExamMode.currentExamIndex + 1;
+            StudyUI.renderQuestion(result);
+            window.scrollTo(0, 0);
+        });
+    },
+
+    /**
+     * When enough marks are accumulated, offer to end or continue.
+     */
+    _loadNextOrFinish: function() {
+        // Load one more question but make it clear the target is reached
+        SessionEngine.getNext().then(function(result) {
+            if (!result) {
+                ExamMode.endTest();
+                return;
+            }
+            ExamMode.totalExamQuestions = ExamMode.currentExamIndex + 1;
+            StudyUI.renderQuestion(result);
+            window.scrollTo(0, 0);
+        });
+    },
+
+    /**
+     * End the exam test. Triggered by "End Test" button or timer expiry.
+     */
+    endTest: function() {
+        if (ExamMode.state !== "running") return;
+
+        clearInterval(ExamMode.timerInterval);
+        ExamMode.timerInterval = null;
+        ExamMode.state = "marking";
+
+        // Hide question area
+        var questionArea = document.getElementById("question-area");
+        if (questionArea) questionArea.style.display = "none";
+
+        // Begin marking
+        if (SessionEngine.answerMethod === "stylus") {
+            ExamMode.batchMarkStylus();
+        } else {
+            ExamMode.batchSelfAssessPaper();
+        }
+    },
+
+    // ---- BATCH MARKING (STYLUS) ----
+
+    /**
+     * Mark all exam questions sequentially via the AI API.
+     * Shows progress as each question is marked.
+     */
+    batchMarkStylus: function() {
+        var markingScreen = document.getElementById("exam-marking-screen");
+        if (!markingScreen) return;
+        markingScreen.style.display = "block";
+
+        var total = ExamMode.testAnswers.length;
+        var html = '<div class="exam-marking-progress">';
+        html += '<h2>\u2699\uFE0F Marking Your Test</h2>';
+        html += '<div class="exam-marking-status" id="exam-marking-status">';
+        html += 'Marking question 1 of ' + total + '...</div>';
+        html += '<div class="exam-marking-bar-container">';
+        html += '<div class="exam-marking-bar" id="exam-marking-bar" style="width:0%"></div>';
+        html += '</div>';
+        html += '<div class="exam-marking-log" id="exam-marking-log"></div>';
+        html += '</div>';
+        markingScreen.innerHTML = html;
+
+        // Process questions sequentially with delay
+        var results = [];
+        var current = 0;
+
+        function markNext() {
+            if (current >= total) {
+                ExamMode.showExamResults(results);
+                return;
+            }
+
+            var answer = ExamMode.testAnswers[current];
+            var statusEl = document.getElementById("exam-marking-status");
+            var barEl = document.getElementById("exam-marking-bar");
+            var logEl = document.getElementById("exam-marking-log");
+
+            if (statusEl) statusEl.textContent = "Marking question " + (current + 1) + " of " + total + "...";
+            if (barEl) barEl.style.width = Math.round(((current) / total) * 100) + "%";
+
+            // Check if any parts actually have canvas content
+            var hasContent = Object.keys(answer.partImages).length > 0;
+            if (!hasContent) {
+                // No canvas content - treat as unanswered
+                results.push({
+                    answer: answer,
+                    aiResult: null,
+                    skipped: true
+                });
+                if (logEl) {
+                    logEl.innerHTML += '<div class="exam-mark-log-item skipped">\u23ED Q' +
+                        (current + 1) + ': Skipped (no answer written)</div>';
+                }
+                current++;
+                setTimeout(markNext, 200);
+                return;
+            }
+
+            ExamMode._markSingleQuestion(answer).then(function(aiResult) {
+                // Run SymPy verification (non-blocking, graceful)
+                WrittenMode._runSympyVerification(aiResult).then(function(sympyData) {
+                    results.push({
+                        answer: answer,
+                        aiResult: aiResult,
+                        sympyData: sympyData,
+                        skipped: false
+                    });
+
+                    // Log success
+                    var earned = 0;
+                    var avail = 0;
+                    if (aiResult && aiResult.parts) {
+                        aiResult.parts.forEach(function(p) {
+                            earned += p.totalAwarded;
+                            avail += p.totalAvailable;
+                        });
+                    }
+                    var verifyNote = sympyData ? " \u2713" : "";
+                    if (logEl) {
+                        logEl.innerHTML += '<div class="exam-mark-log-item done">\u2705 Q' +
+                            (current + 1) + ': ' + earned + '/' + avail + ' marks' + verifyNote + '</div>';
+                    }
+
+                    if (barEl) barEl.style.width = Math.round(((current + 1) / total) * 100) + "%";
+                    current++;
+                    setTimeout(markNext, 1500); // Rate limit: 1.5s between calls
+                });
+            }).catch(function(err) {
+                results.push({
+                    answer: answer,
+                    aiResult: null,
+                    error: err.message,
+                    skipped: false
+                });
+                if (logEl) {
+                    logEl.innerHTML += '<div class="exam-mark-log-item error">\u274C Q' +
+                        (current + 1) + ': Marking failed \u2014 ' +
+                        err.message.substring(0, 60) + '</div>';
+                }
+                current++;
+                setTimeout(markNext, 1000);
+            });
+        }
+
+        markNext();
+    },
+
+    /**
+     * Call the AI to mark a single question's canvas images.
+     * @param {Object} answer - from testAnswers array
+     * @returns {Promise<Object>} - AI marking result
+     */
+    _markSingleQuestion: function(answer) {
+        var apiKey = WrittenMode.getApiKey();
+        if (!apiKey) return Promise.reject(new Error("No API key"));
+
+        var q = answer.questionData;
+        var contentBlocks = [];
+        var systemPrompt = WrittenMode.buildSystemPrompt();
+
+        q.parts.forEach(function(part) {
+            var partInfo = "Part (" + part.partLabel + ") \u2014 " + part.partMarks + " marks\n" +
+                "Question: " + part.questionText + "\n\n" +
+                "Marking criteria:\n";
+
+            if (part.marking) {
+                part.marking.forEach(function(m, mi) {
+                    var line = (mi + 1) + ". " + m.text + " [" + m.awarded + " mark(s)]";
+                    if (m.type) line += " {type:" + m.type + "}";
+                    if (m.deps && m.deps.length) line += " {deps:" + m.deps.join(",") + "}";
+                    if (m.cao) line += " {CAO}";
+                    if (m.isw) line += " {ISW}";
+                    if (m.ft === false) line += " {no-FT}";
+                    if (m.accuracy) line += " {accuracy:" + JSON.stringify(m.accuracy) + "}";
+                    partInfo += line + "\n";
+                });
+            }
+
+            if (part.originalSolution) {
+                partInfo += "\nWorked solution for reference:\n";
+                part.originalSolution.forEach(function(sol, si) {
+                    partInfo += (si + 1) + ". " + sol.text + "\n";
+                });
+            }
+
+            partInfo += "\nBelow is the student's handwritten answer for this part:";
+            contentBlocks.push({ type: "text", text: partInfo });
+
+            var dataUrl = answer.partImages[part.partLabel];
+            if (dataUrl) {
+                var base64 = dataUrl.split(",")[1];
+                contentBlocks.push({
+                    type: "image",
+                    source: { type: "base64", media_type: "image/png", data: base64 }
+                });
+            } else {
+                contentBlocks.push({ type: "text", text: "[No handwritten answer provided for this part]" });
+            }
+        });
+
+        contentBlocks.push({
+            type: "text",
+            text: "Mark all parts. IMPORTANT: First read ALL parts' handwriting. " +
+                  "Then mark each part. For multi-part questions, apply FOLLOW-THROUGH MARKING: " +
+                  "if the student got an earlier part wrong but correctly used their wrong answer " +
+                  "in later parts, award ALL marks in those later parts. The error is penalised " +
+                  "ONLY in the part where it occurred. Respond with JSON only."
+        });
+
+        return fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "anthropic-dangerous-direct-browser-access": "true"
+            },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 2000,
+                system: systemPrompt,
+                messages: [{ role: "user", content: contentBlocks }]
+            })
+        })
+        .then(function(resp) {
+            if (!resp.ok) {
+                return resp.json().then(function(data) {
+                    throw new Error(data.error ? data.error.message : "API error " + resp.status);
+                });
+            }
+            return resp.json();
+        })
+        .then(function(data) {
+            var text = "";
+            if (data.content) {
+                data.content.forEach(function(block) {
+                    if (block.type === "text") text += block.text;
+                });
+            }
+            var cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+            return JSON.parse(cleaned);
+        });
+    },
+
+    // ---- BATCH SELF-ASSESS (PAPER) ----
+
+    /**
+     * For Paper + Exam Mode: show all questions with solutions for batch self-assessment.
+     * Student marks each question after the test ends.
+     */
+    batchSelfAssessPaper: function() {
+        var resultsScreen = document.getElementById("exam-results-screen");
+        if (!resultsScreen) return;
+        resultsScreen.style.display = "block";
+
+        var total = ExamMode.testAnswers.length;
+        var timeUsed = ExamMode.totalSeconds - ExamMode.remainingSeconds;
+
+        var html = '<div class="exam-results">';
+        html += '<div class="exam-results-header">';
+        html += '<h2>\uD83D\uDCCB Exam Review</h2>';
+        html += '<div class="exam-results-summary">';
+        html += '<span>' + total + ' questions</span>';
+        html += '<span>\u23F1 ' + ExamMode.formatTime(timeUsed) + ' used</span>';
+        html += '</div></div>';
+        html += '<p class="exam-paper-instructions">Review each question below. ' +
+            'Check the solution and mark each criterion honestly.</p>';
+
+        // For each question, show the question + solution with self-assessment
+        ExamMode.testAnswers.forEach(function(answer, qIdx) {
+            var q = answer.questionData;
+            html += '<div class="exam-result-question" data-exam-q="' + qIdx + '">';
+            html += '<div class="exam-result-q-header">';
+            html += '<h3>Question ' + (qIdx + 1) + ' \u2014 ' +
+                (q.questionReference || answer.filename) + '</h3>';
+            html += '<span class="badge badge-marks">' + (q.totalMarks || 0) + ' marks</span>';
+            html += '</div>';
+
+            // Show question text briefly
+            if (q.questionStimulus) {
+                html += '<div class="question-stimulus">' +
+                    StudyUI._escapeHtml(q.questionStimulus) + '</div>';
+            }
+
+            // For each part: show solution + self-assessment checkboxes
+            if (q.parts) {
+                q.parts.forEach(function(part, pIdx) {
+                    html += '<div class="exam-paper-part" data-exam-q="' + qIdx +
+                        '" data-exam-p="' + pIdx + '">';
+                    html += '<div class="part-header"><span class="part-label">(' +
+                        StudyUI._escapeHtml(part.partLabel) + ')</span>';
+                    html += '<span class="part-marks">[' + part.partMarks + ' mark' +
+                        (part.partMarks !== 1 ? "s" : "") + ']</span></div>';
+                    html += '<div class="part-text">' +
+                        StudyUI._escapeHtml(part.questionText) + '</div>';
+
+                    // Solution
+                    if (part.originalSolution && part.originalSolution.length > 0) {
+                        html += '<div class="solution-steps">';
+                        part.originalSolution.forEach(function(sol) {
+                            html += '<div class="solution-line">' +
+                                StudyUI._escapeHtml(sol.text) + '</div>';
+                        });
+                        html += '</div>';
+                    }
+
+                    // Self-assessment checkboxes for each marking criterion
+                    if (part.marking && part.marking.length > 0) {
+                        html += '<div class="exam-paper-criteria">';
+                        part.marking.forEach(function(m, mIdx) {
+                            var cbId = "exam-cb-" + qIdx + "-" + pIdx + "-" + mIdx;
+                            html += '<label class="exam-criterion-label">';
+                            html += '<input type="checkbox" id="' + cbId +
+                                '" class="exam-criterion-cb" data-q="' + qIdx +
+                                '" data-p="' + pIdx + '" data-m="' + mIdx + '"> ';
+                            html += StudyUI._escapeHtml(m.text);
+                            html += '</label>';
+                        });
+                        html += '</div>';
+                    }
+
+                    html += '</div>'; // .exam-paper-part
+                });
+            }
+
+            html += '</div>'; // .exam-result-question
+        });
+
+        html += '<div class="exam-paper-submit">';
+        html += '<button class="btn btn-primary btn-large" id="exam-paper-submit-btn">' +
+            '\u2713 Submit Self-Assessment</button>';
+        html += '</div>';
+        html += '</div>'; // .exam-results
+
+        resultsScreen.innerHTML = html;
+
+        // Bind submit button
+        var submitBtn = document.getElementById("exam-paper-submit-btn");
+        if (submitBtn) {
+            submitBtn.addEventListener("click", function() {
+                ExamMode.submitPaperAssessment();
+            });
+        }
+
+        UI.renderMath(resultsScreen);
+    },
+
+    /**
+     * Collect paper self-assessment results and record them.
+     */
+    submitPaperAssessment: function() {
+        var allResults = [];
+
+        ExamMode.testAnswers.forEach(function(answer, qIdx) {
+            var q = answer.questionData;
+            var partResults = {};
+
+            if (q.parts) {
+                q.parts.forEach(function(part, pIdx) {
+                    var totalCriteria = (part.marking || []).length;
+                    var metCount = 0;
+                    var failedCriteria = [];
+
+                    (part.marking || []).forEach(function(m, mIdx) {
+                        var cb = document.getElementById("exam-cb-" + qIdx + "-" + pIdx + "-" + mIdx);
+                        if (cb && cb.checked) {
+                            metCount++;
+                        } else {
+                            failedCriteria.push(mIdx);
+                        }
+                    });
+
+                    var earned = 0;
+                    (part.marking || []).forEach(function(m, mIdx) {
+                        var cb = document.getElementById("exam-cb-" + qIdx + "-" + pIdx + "-" + mIdx);
+                        if (cb && cb.checked) earned += (m.awarded || 1);
+                    });
+
+                    var isCorrect = (failedCriteria.length === 0);
+
+                    partResults[part.partLabel] = {
+                        correct: isCorrect,
+                        correctButUnsure: false,
+                        errorAtLine: isCorrect ? null : 1,
+                        markingCriteriaFailed: failedCriteria,
+                        marksEarned: earned,
+                        marksAvailable: part.partMarks || 0,
+                        answerMethod: "paper",
+                        errorType: isCorrect ? null : "execution"
+                    };
+                });
+            }
+
+            allResults.push({
+                answer: answer,
+                partResults: partResults
+            });
+        });
+
+        // Record all results to mastery system
+        ExamMode._recordAllResults(allResults);
+    },
+
+    // ---- EXAM RESULTS SCREEN (STYLUS) ----
+
+    /**
+     * Show the full exam results screen after batch marking.
+     * @param {Array} results - array of { answer, aiResult, skipped, error }
+     */
+    showExamResults: function(results) {
+        var markingScreen = document.getElementById("exam-marking-screen");
+        if (markingScreen) markingScreen.style.display = "none";
+
+        var resultsScreen = document.getElementById("exam-results-screen");
+        if (!resultsScreen) return;
+        resultsScreen.style.display = "block";
+        ExamMode.state = "results";
+
+        // Calculate totals
+        var totalEarned = 0;
+        var totalAvailable = 0;
+        var questionsMarked = 0;
+        var questionsFailed = 0;
+        var questionsSkipped = 0;
+
+        results.forEach(function(r) {
+            if (r.skipped) {
+                questionsSkipped++;
+                totalAvailable += r.answer.totalMarks || 0;
+            } else if (r.aiResult && r.aiResult.parts) {
+                questionsMarked++;
+                r.aiResult.parts.forEach(function(p) {
+                    totalEarned += p.totalAwarded;
+                    totalAvailable += p.totalAvailable;
+                });
+            } else {
+                questionsFailed++;
+                totalAvailable += r.answer.totalMarks || 0;
+            }
+        });
+
+        var timeUsed = ExamMode.totalSeconds - Math.max(0, ExamMode.remainingSeconds);
+        var pct = totalAvailable > 0 ? Math.round((totalEarned / totalAvailable) * 100) : 0;
+
+        var html = '<div class="exam-results">';
+
+        // Summary header
+        html += '<div class="exam-results-header">';
+        html += '<h2>\uD83D\uDCCA Exam Results</h2>';
+        html += '<div class="exam-score-big">';
+        html += '<span class="exam-score-earned">' + totalEarned + '</span>';
+        html += '<span class="exam-score-slash"> / </span>';
+        html += '<span class="exam-score-total">' + totalAvailable + '</span>';
+        html += '<span class="exam-score-pct"> (' + pct + '%)</span>';
+        html += '</div>';
+        html += '<div class="exam-results-summary">';
+        html += '<span>\u23F1 Time used: ' + ExamMode.formatTime(timeUsed) + ' of ' +
+            ExamMode.formatTime(ExamMode.totalSeconds) + '</span>';
+        html += '<span>' + questionsMarked + ' marked';
+        if (questionsSkipped > 0) html += ', ' + questionsSkipped + ' skipped';
+        if (questionsFailed > 0) html += ', ' + questionsFailed + ' failed';
+        html += '</span></div>';
+        html += '</div>';
+
+        // Per-question results
+        results.forEach(function(r, qIdx) {
+            var q = r.answer.questionData;
+            html += '<div class="exam-result-question">';
+            html += '<div class="exam-result-q-header">';
+            html += '<h3>Question ' + (qIdx + 1) + ' \u2014 ' +
+                (q.questionReference || r.answer.filename) + '</h3>';
+
+            if (r.skipped) {
+                html += '<span class="exam-q-score skipped">\u23ED Skipped</span>';
+            } else if (r.aiResult) {
+                var qEarned = 0;
+                var qAvail = 0;
+                r.aiResult.parts.forEach(function(p) {
+                    qEarned += p.totalAwarded;
+                    qAvail += p.totalAvailable;
+                });
+                var scoreClass = qEarned === qAvail ? "full" : qEarned > 0 ? "partial" : "zero";
+                html += '<span class="exam-q-score ' + scoreClass + '">' +
+                    qEarned + '/' + qAvail + '</span>';
+            } else {
+                html += '<span class="exam-q-score error">\u274C Failed</span>';
+            }
+
+            html += '</div>';
+
+            // If AI result available, show per-part details
+            if (r.aiResult && r.aiResult.parts) {
+                r.aiResult.parts.forEach(function(partResult, pIdx) {
+                    var questionPart = q.parts[pIdx];
+                    if (!questionPart) return;
+
+                    html += '<div class="exam-result-part">';
+                    html += '<div class="exam-result-part-header">';
+                    html += '<span>(' + StudyUI._escapeHtml(questionPart.partLabel) + ')</span>';
+                    var prScoreClass = partResult.totalAwarded === partResult.totalAvailable ?
+                        "full" : partResult.totalAwarded > 0 ? "partial" : "zero";
+                    html += '<span class="exam-part-score ' + prScoreClass + '">' +
+                        partResult.totalAwarded + '/' + partResult.totalAvailable + '</span>';
+                    html += '</div>';
+
+                    // Side-by-side: canvas snapshot + worked solution
+                    html += '<div class="exam-result-compare">';
+
+                    // Student's answer (canvas snapshot)
+                    var imgUrl = r.answer.partImages[questionPart.partLabel];
+                    if (imgUrl) {
+                        html += '<div class="exam-student-answer">';
+                        html += '<div class="exam-compare-label">Your Answer</div>';
+                        html += '<img src="' + imgUrl + '" class="exam-canvas-snapshot" ' +
+                            'alt="Your handwritten answer">';
+                        html += '</div>';
+                    }
+
+                    // Worked solution
+                    if (questionPart.originalSolution && questionPart.originalSolution.length > 0) {
+                        html += '<div class="exam-worked-solution">';
+                        html += '<div class="exam-compare-label">Worked Solution</div>';
+                        questionPart.originalSolution.forEach(function(sol, si) {
+                            var lineClass = "exam-sol-line";
+                            // Colour-code based on error location
+                            if (partResult.errorLine !== null && partResult.errorLine !== undefined) {
+                                if (si + 1 < partResult.errorLine) lineClass += " correct";
+                                else if (si + 1 === partResult.errorLine) lineClass += " error-here";
+                            } else {
+                                lineClass += " correct";
+                            }
+                            html += '<div class="' + lineClass + '">' +
+                                (si + 1) + '. ' + StudyUI._escapeHtml(sol.text) + '</div>';
+                        });
+                        html += '</div>';
+                    }
+
+                    html += '</div>'; // .exam-result-compare
+
+                    // Marking criteria
+                    if (partResult.marks && partResult.marks.length > 0) {
+                        html += '<div class="exam-criteria-list">';
+                        partResult.marks.forEach(function(mark) {
+                            var cls = mark.awarded ? "met" : "not-met";
+                            // SymPy verification badge for exam mode
+                            var examVerifyBadge = "";
+                            if (r.sympyData && r.sympyData.perCriterion) {
+                                var evKey = questionPart.partLabel + "-" + mark.criterionIndex;
+                                var evResult = r.sympyData.perCriterion[evKey];
+                                if (evResult) {
+                                    if (evResult.status === "verified") {
+                                        examVerifyBadge = ' <span class="wm-sympy-badge verified" title="' +
+                                            StudyUI._escapeHtml(evResult.details) + '">\u2713 verified</span>';
+                                    } else if (evResult.status === "disagree") {
+                                        examVerifyBadge = ' <span class="wm-sympy-badge disagree" title="' +
+                                            StudyUI._escapeHtml(evResult.details) + '">\u26A0\uFE0F check</span>';
+                                    }
+                                }
+                            }
+                            html += '<div class="exam-criterion ' + cls + '">';
+                            html += '<span class="exam-criterion-icon">' +
+                                (mark.awarded ? "\u2713" : "\u2717") + '</span> ';
+                            html += StudyUI._escapeHtml(mark.text) + examVerifyBadge;
+                            html += '</div>';
+                        });
+                        html += '</div>';
+                    }
+
+                    // Error diagnosis
+                    if (partResult.errorDiagnosis) {
+                        html += '<div class="exam-error-diagnosis">';
+                        html += '<strong>\u26A0\uFE0F Error:</strong> ' +
+                            StudyUI._escapeHtml(partResult.errorDiagnosis);
+                        html += '</div>';
+                    }
+
+                    html += '</div>'; // .exam-result-part
+                });
+            }
+
+            html += '</div>'; // .exam-result-question
+        });
+
+        // Finish button
+        html += '<div class="exam-results-footer">';
+        html += '<button class="btn btn-primary btn-large" id="exam-finish-btn">' +
+            'Done \u2014 Return to Study</button>';
+        html += '</div>';
+        html += '</div>'; // .exam-results
+
+        resultsScreen.innerHTML = html;
+        UI.renderMath(resultsScreen);
+
+        // Bind finish button
+        var finishBtn = document.getElementById("exam-finish-btn");
+        if (finishBtn) {
+            finishBtn.addEventListener("click", function() {
+                ExamMode.finish();
+            });
+        }
+
+        // Record all results to mastery system
+        ExamMode._recordStylusResults(results);
+    },
+
+    // ---- RECORDING RESULTS ----
+
+    /**
+     * Record stylus exam results into the mastery system.
+     */
+    _recordStylusResults: function(results) {
+        var chain = Promise.resolve();
+
+        results.forEach(function(r) {
+            if (r.skipped || !r.aiResult || !r.aiResult.parts) return;
+
+            var q = r.answer.questionData;
+            var fn = r.answer.filename;
+            var partResults = {};
+
+            q.parts.forEach(function(part, idx) {
+                var partResult = r.aiResult.parts[idx];
+                if (!partResult) return;
+
+                var totalMarks = part.partMarks || 0;
+                var earned = partResult.totalAwarded || 0;
+                var isCorrect = (earned === totalMarks);
+
+                var failedCriteria = [];
+                if (partResult.marks) {
+                    partResult.marks.forEach(function(mark) {
+                        if (!mark.awarded && mark.criterionIndex !== undefined) {
+                            failedCriteria.push(mark.criterionIndex);
+                        }
+                    });
+                }
+
+                partResults[part.partLabel] = {
+                    correct: isCorrect,
+                    correctButUnsure: false,
+                    errorAtLine: isCorrect ? null : (partResult.errorLine || 1),
+                    markingCriteriaFailed: failedCriteria,
+                    marksEarned: earned,
+                    marksAvailable: totalMarks,
+                    answerMethod: "stylus",
+                    errorType: isCorrect ? null : (partResult.errorType || "execution")
+                };
+            });
+
+            chain = chain.then(function() {
+                return SessionEngine.recordResults(fn, partResults);
+            });
+        });
+
+        return chain;
+    },
+
+    /**
+     * Record paper exam results (from batch self-assessment).
+     */
+    _recordAllResults: function(allResults) {
+        var chain = Promise.resolve();
+
+        allResults.forEach(function(r) {
+            chain = chain.then(function() {
+                return SessionEngine.recordResults(r.answer.filename, r.partResults);
+            });
+        });
+
+        chain.then(function() {
+            // Show summary after recording
+            ExamMode._showPaperSummary(allResults);
+        });
+    },
+
+    /**
+     * Show a summary screen after paper self-assessment submission.
+     */
+    _showPaperSummary: function(allResults) {
+        var resultsScreen = document.getElementById("exam-results-screen");
+        if (!resultsScreen) return;
+
+        var totalEarned = 0;
+        var totalAvail = 0;
+        allResults.forEach(function(r) {
+            Object.keys(r.partResults).forEach(function(key) {
+                totalEarned += r.partResults[key].marksEarned || 0;
+                totalAvail += r.partResults[key].marksAvailable || 0;
+            });
+        });
+
+        var pct = totalAvail > 0 ? Math.round((totalEarned / totalAvail) * 100) : 0;
+        var timeUsed = ExamMode.totalSeconds - Math.max(0, ExamMode.remainingSeconds);
+
+        var html = '<div class="exam-results">';
+        html += '<div class="exam-results-header">';
+        html += '<h2>\u2705 Self-Assessment Complete</h2>';
+        html += '<div class="exam-score-big">';
+        html += '<span class="exam-score-earned">' + totalEarned + '</span>';
+        html += '<span class="exam-score-slash"> / </span>';
+        html += '<span class="exam-score-total">' + totalAvail + '</span>';
+        html += '<span class="exam-score-pct"> (' + pct + '%)</span>';
+        html += '</div>';
+        html += '<div class="exam-results-summary">';
+        html += '<span>\u23F1 Time used: ' + ExamMode.formatTime(timeUsed) + '</span>';
+        html += '<span>' + allResults.length + ' questions assessed</span>';
+        html += '</div></div>';
+        html += '<div class="exam-results-footer">';
+        html += '<button class="btn btn-primary btn-large" id="exam-finish-btn">' +
+            'Done \u2014 Return to Study</button>';
+        html += '</div></div>';
+
+        resultsScreen.innerHTML = html;
+
+        var finishBtn = document.getElementById("exam-finish-btn");
+        if (finishBtn) {
+            finishBtn.addEventListener("click", function() {
+                ExamMode.finish();
+            });
+        }
+    },
+
+    /**
+     * Finish the exam and return to the study start screen.
+     */
+    finish: function() {
+        ExamMode.active = false;
+        ExamMode.state = "inactive";
+        ExamMode.testAnswers = [];
+
+        if (ExamMode.timerInterval) {
+            clearInterval(ExamMode.timerInterval);
+            ExamMode.timerInterval = null;
+        }
+
+        // Hide results/marking screens
+        var markingScreen = document.getElementById("exam-marking-screen");
+        if (markingScreen) markingScreen.style.display = "none";
+        var resultsScreen = document.getElementById("exam-results-screen");
+        if (resultsScreen) resultsScreen.style.display = "none";
+
+        // End the session and show summary
+        SessionEngine.active = false;
+        StudyUI.showSessionSummary();
+    },
+
+    // ---- RENDER HELPERS ----
+
+    /**
+     * Render the exam-mode bottom bar (replaces the normal mark bar / solution prompt).
+     * @returns {string} HTML string
+     */
+    renderBottomBar: function() {
+        var total = ExamMode.testAnswers.length + 1; // +1 for current question
+        var html = '<div class="exam-bottom-bar" id="exam-bottom-bar">';
+        html += '<div class="exam-bar-inner">';
+        html += '<div class="exam-timer">';
+        html += '<span class="exam-timer-icon">\u23F0</span>';
+        html += '<span class="exam-timer-display" id="exam-timer-display">' +
+            ExamMode.formatTime(ExamMode.remainingSeconds) + '</span>';
+        html += '</div>';
+        html += '<div class="exam-q-counter" id="exam-q-counter">Q ' + total + '</div>';
+        html += '<div class="exam-bar-buttons">';
+        html += '<button class="btn btn-primary exam-next-btn" id="exam-next-btn">' +
+            'Next Question \u2192</button>';
+        html += '<button class="btn btn-danger exam-end-btn" id="exam-end-btn">' +
+            'End Test</button>';
+        html += '</div>';
+        html += '</div></div>';
+        return html;
+    }
+};
 var UI = {
     currentTab: "study",
 
@@ -2653,7 +3749,7 @@ var UI = {
             });
         }
 
-        // Config toggle groups (section filter, focus filter)
+        // Config toggle groups (section filter, focus filter, marking mode, etc.)
         var toggleGroups = document.querySelectorAll(".config-toggle-group");
         toggleGroups.forEach(function(group) {
             var buttons = group.querySelectorAll(".config-toggle");
@@ -2665,9 +3761,27 @@ var UI = {
                     });
                     btn.setAttribute("aria-pressed", "true");
                     StudyUI.updateQuestionEstimate();
+
+                    // If this is the marking mode toggle, show/hide exam config
+                    if (group.id === "study-marking-mode-group") {
+                        var isExam = btn.getAttribute("data-value") === "exam";
+                        var examRow = document.getElementById("exam-config-row");
+                        var timeRow = document.getElementById("study-time-row");
+                        if (examRow) examRow.style.display = isExam ? "" : "none";
+                        if (timeRow) timeRow.style.display = isExam ? "none" : "";
+                        if (isExam) StudyUI.updateExamTimeCalc();
+                    }
                 });
             });
         });
+
+        // Exam marks select: update time calculation
+        var examSelect = document.getElementById("exam-marks-select");
+        if (examSelect) {
+            examSelect.addEventListener("change", function() {
+                StudyUI.updateExamTimeCalc();
+            });
+        }
 
         // Import/export buttons (Phase S5)
         document.getElementById("btn-import-update").addEventListener("click", function() {
@@ -2958,6 +4072,17 @@ var UI = {
                 QuestionEngine.unlockedProblemTypes.length + " problem types unlocked";
         }
 
+        // SymPy verification status
+        var sympyEl = document.getElementById("settings-sympy-status");
+        if (sympyEl) {
+            var sympyEndpoint = WrittenMode.getSympyEndpoint();
+            if (sympyEndpoint) {
+                sympyEl.innerHTML = '\u2705 SymPy verification: <span style="color:var(--correct-green)">enabled</span>';
+            } else {
+                sympyEl.innerHTML = '\u2014 SymPy verification: <span style="color:var(--text-muted)">not configured</span>';
+            }
+        }
+
         // Check storage usage
         UI.updateStorageDisplay();
     },
@@ -3119,10 +4244,6 @@ var StudyUI = {
         // Ensure we're targeting the study tab's question area
         StudyUI._activeAreaId = "question-area";
 
-        // Read time input and convert to question count
-        var timeInput = document.getElementById("session-time-input");
-        var minutes = timeInput ? parseInt(timeInput.value, 10) : 15;
-
         // Read section filter
         var sectionFilter = "mix";
         var secGroup = document.getElementById("section-filter-group");
@@ -3147,14 +4268,34 @@ var StudyUI = {
             if (ansBtn) answerMethod = ansBtn.getAttribute("data-value");
         }
 
+        // Read marking mode
+        var markingMode = "instant";
+        var markingGroup = document.getElementById("study-marking-mode-group");
+        if (markingGroup) {
+            var markBtn = markingGroup.querySelector('[aria-pressed="true"]');
+            if (markBtn) markingMode = markBtn.getAttribute("data-value");
+        }
+
         // Check API key if stylus mode
         if (answerMethod === "stylus" && !WrittenMode.getApiKey()) {
             alert("Written Mode is not enabled for this class. Your teacher needs to add an API key to the schedule configuration.");
             return;
         }
 
-        // Estimate question count from time: ~1 minute per mark
-        var goal = StudyUI.estimateQuestions(minutes, sectionFilter);
+        // Calculate goal based on mode
+        var goal;
+        var examMarks = 0;
+        if (markingMode === "exam") {
+            var examSelect = document.getElementById("exam-marks-select");
+            examMarks = examSelect ? parseInt(examSelect.value, 10) : 50;
+            // Set a high goal so SessionEngine doesn't stop early
+            // We manage question count via mark accumulation in ExamMode
+            goal = 50;
+        } else {
+            var timeInput = document.getElementById("session-time-input");
+            var minutes = timeInput ? parseInt(timeInput.value, 10) : 15;
+            goal = StudyUI.estimateQuestions(minutes, sectionFilter);
+        }
 
         // Edge case: check if any questions are available at all
         var availableKeys = Object.keys(QuestionEngine.getAvailableQuestions());
@@ -3186,9 +4327,16 @@ var StudyUI = {
             goal: goal,
             sectionFilter: sectionFilter,
             wrongListOnly: wrongListOnly,
-            answerMethod: answerMethod
+            answerMethod: answerMethod,
+            markingMode: markingMode
         }).then(function() {
             StudyUI._nextReminderMinutes = 30; // reset duration reminder
+
+            // If exam mode, start the exam timer
+            if (markingMode === "exam") {
+                ExamMode.start(examMarks);
+            }
+
             StudyUI.loadNextQuestion();
         });
     },
@@ -3247,22 +4395,44 @@ var StudyUI = {
     },
 
     /**
+     * Update the exam time calculation display based on selected marks.
+     */
+    updateExamTimeCalc: function() {
+        var select = document.getElementById("exam-marks-select");
+        var calcEl = document.getElementById("exam-time-calc");
+        if (!select || !calcEl) return;
+
+        var marks = parseInt(select.value, 10);
+        var secs = ExamMode.calcTime(marks);
+        var mins = Math.round(secs / 60);
+        calcEl.textContent = "Time allowed: ~" + mins + " min";
+    },
+
+    /**
      * Load and display the next question.
      */
     loadNextQuestion: function() {
-        // Record results for the current question before moving on
-        StudyUI._recordResultsIfNeeded().then(function() {
-            // Check if session goal reached (bonus questions don't count)
-            var plannedCount = SessionEngine.totalCount - SessionEngine.bonusCount;
-            if (plannedCount >= SessionEngine.sessionGoal) {
-                StudyUI.showSessionSummary();
-                return;
+        // In exam mode, skip result recording (ExamMode handles it)
+        var recordPromise = ExamMode.active ?
+            Promise.resolve() : StudyUI._recordResultsIfNeeded();
+
+        recordPromise.then(function() {
+            // Check if session goal reached (not applicable in exam mode)
+            if (!ExamMode.active) {
+                var plannedCount = SessionEngine.totalCount - SessionEngine.bonusCount;
+                if (plannedCount >= SessionEngine.sessionGoal) {
+                    StudyUI.showSessionSummary();
+                    return;
+                }
             }
 
             SessionEngine.getNext().then(function(result) {
                 if (!result) {
-                    // No more questions available
-                    StudyUI.showSessionSummary();
+                    if (ExamMode.active) {
+                        ExamMode.endTest();
+                    } else {
+                        StudyUI.showSessionSummary();
+                    }
                     return;
                 }
                 StudyUI.renderQuestion(result);
@@ -3310,7 +4480,17 @@ var StudyUI = {
 
         // Progress bar
         html += '<div class="session-progress">';
-        if (questionInfo.isBonus) {
+        if (ExamMode.active) {
+            // Exam mode: show marks accumulated and question number
+            var qNum = ExamMode.testAnswers.length + 1;
+            html += '<div class="progress-text">Question ' + qNum +
+                ' \u2014 ' + ExamMode.accumulatedMarks + ' / ' +
+                ExamMode.targetMarks + ' marks queued</div>';
+            var markPct = Math.round((ExamMode.accumulatedMarks / ExamMode.targetMarks) * 100);
+            markPct = Math.min(markPct, 100);
+            html += '<div class="progress-bar"><div class="progress-fill" style="width:' +
+                markPct + '%"></div></div>';
+        } else if (questionInfo.isBonus) {
             html += '<div class="progress-text">' + SYMBOLS.LIGHTNING +
                 ' Bonus: Another like this</div>';
         } else {
@@ -3319,11 +4499,13 @@ var StudyUI = {
                 plannedNum + ' of ' +
                 questionInfo.sessionGoal + '</div>';
         }
-        var plannedDone = (questionInfo.questionNumber - (SessionEngine.bonusCount || 0));
-        var pct = Math.round((plannedDone / questionInfo.sessionGoal) * 100);
-        pct = Math.min(pct, 100);
-        html += '<div class="progress-bar"><div class="progress-fill" style="width:' +
-            pct + '%"></div></div>';
+        if (!ExamMode.active) {
+            var plannedDone = (questionInfo.questionNumber - (SessionEngine.bonusCount || 0));
+            var pct = Math.round((plannedDone / questionInfo.sessionGoal) * 100);
+            pct = Math.min(pct, 100);
+            html += '<div class="progress-bar"><div class="progress-fill" style="width:' +
+                pct + '%"></div></div>';
+        }
         html += '</div>';
 
         // Question header
@@ -3384,7 +4566,7 @@ var StudyUI = {
                     html += '</div>';
                 }
 
-                // STYLUS MODE: add canvas row inside each part
+                // STYLUS MODE: add canvas row inside each part (for both instant and exam)
                 if (SessionEngine.answerMethod === "stylus") {
                     html += WrittenMode.renderCanvasRow(part.partLabel);
                 }
@@ -3393,8 +4575,12 @@ var StudyUI = {
             });
         }
 
-        // STYLUS MODE: sticky mark bar instead of paper prompt
-        if (SessionEngine.answerMethod === "stylus") {
+        if (ExamMode.active) {
+            // EXAM MODE: show exam bottom bar (both stylus and paper)
+            html += ExamMode.renderBottomBar();
+
+        } else if (SessionEngine.answerMethod === "stylus") {
+            // INSTANT STYLUS MODE: sticky mark bar
             html += '<div class="wm-mark-area" id="wm-mark-area">';
             html += '<div class="wm-mark-bar-inner">';
             html += '<div class="wm-timer wm-hidden" id="wm-timer">';
@@ -3421,7 +4607,7 @@ var StudyUI = {
             html += '</div>';
 
         } else {
-            // PAPER MODE: original flow
+            // INSTANT PAPER MODE: original flow
             html += '<div class="show-solution-area">';
             html += '<p class="solution-prompt">Work through this question on paper, ' +
                 'then check your answer.</p>';
@@ -3442,8 +4628,42 @@ var StudyUI = {
 
         area.innerHTML = html;
 
-        // STYLUS MODE: init canvases and bind mark button
-        if (SessionEngine.answerMethod === "stylus") {
+        // EXAM MODE: bind exam buttons + init canvases if stylus
+        if (ExamMode.active) {
+            // Init canvases for stylus mode (no per-question timer in exam mode)
+            if (SessionEngine.answerMethod === "stylus") {
+                setTimeout(function() {
+                    WrittenMode.initCanvasesForQuestion(q);
+                }, 50);
+            }
+
+            // Bind exam Next Question button
+            var examNextBtn = document.getElementById("exam-next-btn");
+            if (examNextBtn) {
+                examNextBtn.addEventListener("click", function() {
+                    ExamMode.nextQuestion();
+                });
+            }
+
+            // Bind exam End Test button
+            var examEndBtn = document.getElementById("exam-end-btn");
+            if (examEndBtn) {
+                examEndBtn.addEventListener("click", function() {
+                    if (confirm("End the test now? Your answers will be marked.")) {
+                        ExamMode.snapshotCurrentQuestion();
+                        ExamMode.endTest();
+                    }
+                });
+            }
+
+            // Update the question counter display
+            var counterEl = document.getElementById("exam-q-counter");
+            if (counterEl) {
+                counterEl.textContent = "Q " + (ExamMode.testAnswers.length + 1);
+            }
+
+        } else if (SessionEngine.answerMethod === "stylus") {
+            // INSTANT STYLUS MODE: init canvases and bind mark button
             setTimeout(function() {
                 WrittenMode.initCanvasesForQuestion(q);
                 WrittenMode.QuestionTimer.start(q);
@@ -3479,7 +4699,7 @@ var StudyUI = {
             }
 
         } else {
-            // PAPER MODE: bind show solution button
+            // INSTANT PAPER MODE: bind show solution button
             var showBtn = document.getElementById("show-solution-btn");
             if (showBtn) {
                 showBtn.addEventListener("click", function() {
@@ -3488,7 +4708,7 @@ var StudyUI = {
             }
         }
 
-        // End session button
+        // End session button (non-exam)
         var endBtn = document.getElementById("end-session-btn");
         if (endBtn) {
             endBtn.addEventListener("click", function() {
@@ -4270,6 +5490,13 @@ var StudyUI = {
      * Show the session summary screen.
      */
     showSessionSummary: function() {
+        // If exam mode is still running, route through exam end flow instead
+        if (ExamMode.active && ExamMode.state === "running") {
+            ExamMode.snapshotCurrentQuestion();
+            ExamMode.endTest();
+            return;
+        }
+
         // Stop any running Written Mode timer
         WrittenMode.QuestionTimer.stop();
 
@@ -4375,6 +5602,21 @@ var StudyUI = {
      * Return to the study tab home screen.
      */
     returnToHome: function() {
+        // Clean up exam mode if active
+        if (ExamMode.active) {
+            ExamMode.active = false;
+            ExamMode.state = "inactive";
+            ExamMode.testAnswers = [];
+            if (ExamMode.timerInterval) {
+                clearInterval(ExamMode.timerInterval);
+                ExamMode.timerInterval = null;
+            }
+            var markingScreen = document.getElementById("exam-marking-screen");
+            if (markingScreen) markingScreen.style.display = "none";
+            var resultsScreen = document.getElementById("exam-results-screen");
+            if (resultsScreen) resultsScreen.style.display = "none";
+        }
+
         if (StudyUI._activeAreaId === "revise-question-area") {
             // Returning from a revision session -- go back to topic tree
             var reviseHome = document.getElementById("revise-home");
@@ -4604,6 +5846,17 @@ var ReviseUI = {
             if (secBtn) sectionFilter = secBtn.getAttribute("data-value");
         }
 
+        // Read marking mode (interactive = instant, exam = exam)
+        var markingMode = "instant";
+        var modeGroup = document.getElementById("revise-mode-group");
+        if (modeGroup) {
+            var modeBtn = modeGroup.querySelector('[aria-pressed="true"]');
+            if (modeBtn) {
+                var val = modeBtn.getAttribute("data-value");
+                markingMode = (val === "exam") ? "exam" : "instant";
+            }
+        }
+
         // Check API key if stylus mode
         if (answerMethod === "stylus" && !WrittenMode.getApiKey()) {
             alert("Written Mode is not enabled for this class. Your teacher needs to add an API key to the schedule configuration.");
@@ -4612,14 +5865,15 @@ var ReviseUI = {
             return;
         }
 
-        // Use a reasonable default goal
-        var goal = 10;
+        // Use a reasonable default goal (higher for exam mode)
+        var goal = markingMode === "exam" ? 50 : 10;
 
         SessionEngine.start("revision", filter, {
             goal: goal,
             sectionFilter: sectionFilter,
             wrongListOnly: false,
-            answerMethod: answerMethod
+            answerMethod: answerMethod,
+            markingMode: markingMode
         }).then(function() {
             // Check if there are any questions available
             var totalAvailable = SessionEngine.wrongList.length +
@@ -4645,6 +5899,12 @@ var ReviseUI = {
             }
 
             StudyUI._nextReminderMinutes = 30;
+
+            // If exam mode, start exam timer (use default 30 marks for revision)
+            if (markingMode === "exam") {
+                ExamMode.start(30);
+            }
+
             StudyUI.loadNextQuestion();
         });
     },

@@ -154,6 +154,15 @@
                             </div>
                         </div>
                         <div class="config-row">
+                            <label>Marking Mode:</label>
+                            <div class="config-toggle-group" id="study-marking-mode-group">
+                                <button class="config-toggle" data-value="instant"
+                                        aria-pressed="true">Instant</button>
+                                <button class="config-toggle" data-value="exam"
+                                        aria-pressed="false">Exam Mode</button>
+                            </div>
+                        </div>
+                        <div class="config-row" id="study-time-row">
                             <label for="session-time-input">Study time (minutes):</label>
                             <div class="config-slider">
                                 <input type="range" id="session-time-input" min="5" max="60"
@@ -161,6 +170,22 @@
                                 <span id="session-time-display">15 min</span>
                             </div>
                             <span class="config-estimate" id="session-question-estimate"></span>
+                        </div>
+                        <div class="config-row exam-config-row" id="exam-config-row"
+                             style="display:none;">
+                            <label>Total marks:</label>
+                            <div class="exam-config-inner">
+                                <select id="exam-marks-select" class="exam-marks-select">
+                                    <option value="20">20 marks</option>
+                                    <option value="30">30 marks</option>
+                                    <option value="40">40 marks</option>
+                                    <option value="50" selected>50 marks</option>
+                                    <option value="60">60 marks</option>
+                                </select>
+                                <span class="exam-time-calc" id="exam-time-calc">
+                                    Time allowed: ~30 min
+                                </span>
+                            </div>
                         </div>
                         <div class="config-row">
                             <label>Section:</label>
@@ -191,6 +216,18 @@
                 <!-- Question display area (hidden until session starts) -->
                 <div id="question-area" style="display:none;">
                 </div>
+                <!-- Exam Mode: Time's up overlay -->
+                <div class="exam-times-up-overlay" id="exam-times-up-overlay" style="display:none;">
+                    <div class="exam-times-up-content">
+                        <div class="exam-times-up-icon">&#x23F0;</div>
+                        <h2>Time's Up!</h2>
+                        <p>Your test has ended. Marking will begin now.</p>
+                    </div>
+                </div>
+                <!-- Exam Mode: Marking progress screen -->
+                <div id="exam-marking-screen" style="display:none;"></div>
+                <!-- Exam Mode: Results screen -->
+                <div id="exam-results-screen" style="display:none;"></div>
             </section>
 
             <!-- REVISE TAB -->
@@ -543,6 +580,7 @@
                     <h3>About</h3>
                     <p id="settings-about-text"></p>
                     <p id="settings-data-stats"></p>
+                    <p id="settings-sympy-status" class="sympy-status-line"></p>
                 </div>
             </div>
         </div>

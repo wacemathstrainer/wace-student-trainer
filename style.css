@@ -3635,6 +3635,66 @@ body.dark-theme input[type="range"] {
 .wm-marking-row.overridden .wm-override-label { display: inline; }
 .wm-marking-row.overridden .wm-override-hint { display: none; }
 
+/* ---- SYMPY VERIFICATION BADGES ---- */
+
+.wm-sympy-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: help;
+    vertical-align: middle;
+}
+
+.wm-sympy-badge.verified {
+    background: rgba(40, 167, 69, 0.12);
+    color: var(--color-success);
+    border: 1px solid rgba(40, 167, 69, 0.25);
+}
+
+.wm-sympy-badge.disagree {
+    background: rgba(255, 153, 0, 0.12);
+    color: #d68000;
+    border: 1px solid rgba(255, 153, 0, 0.25);
+}
+
+.wm-sympy-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    margin-bottom: var(--space-md);
+}
+
+.wm-sympy-summary.ok {
+    background: rgba(40, 167, 69, 0.08);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    color: var(--color-success);
+}
+
+.wm-sympy-summary.warn {
+    background: rgba(255, 153, 0, 0.08);
+    border: 1px solid rgba(255, 153, 0, 0.2);
+    color: #d68000;
+}
+
+.wm-sympy-summary-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.sympy-status-line {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
 /* ---- ERROR DIAGNOSIS ---- */
 
 .wm-error-diagnosis {
@@ -3854,3 +3914,474 @@ body.dark-theme input[type="range"] {
 }
 
 .wm-next-actions.wm-hidden { display: none; }
+
+
+/* ============================================================================
+   EXAM MODE STYLES
+   ============================================================================ */
+
+/* ---- Exam Config Row ---- */
+
+.exam-config-row .exam-config-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.exam-marks-select {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.exam-time-calc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+/* ---- Exam Bottom Bar ---- */
+
+.exam-bottom-bar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: var(--card-bg);
+    border-top: 2px solid var(--primary);
+    padding: 10px 16px;
+    margin-top: var(--space-lg);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.exam-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.exam-timer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 80px;
+}
+
+.exam-timer-icon { font-size: 1.1rem; }
+
+.exam-q-counter {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.exam-bar-buttons {
+    display: flex;
+    gap: var(--space-sm);
+    margin-left: auto;
+}
+
+.exam-next-btn {
+    font-weight: 600;
+}
+
+.exam-end-btn {
+    background: var(--danger, #C62828) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+.exam-end-btn:hover {
+    background: #b71c1c !important;
+}
+
+/* Timer warning states */
+.exam-timer-warning {
+    border-top-color: #F57C00;
+}
+.exam-timer-warning .exam-timer {
+    color: #F57C00;
+}
+
+.exam-timer-critical {
+    border-top-color: #C62828;
+    animation: exam-pulse 1s ease-in-out infinite;
+}
+.exam-timer-critical .exam-timer {
+    color: #C62828;
+}
+
+@keyframes exam-pulse {
+    0%, 100% { background: var(--card-bg); }
+    50% { background: rgba(198, 40, 40, 0.06); }
+}
+
+/* ---- Time's Up Overlay ---- */
+
+.exam-times-up-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.exam-times-up-content {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg, 12px);
+    padding: 48px 64px;
+    text-align: center;
+    animation: exam-times-up-in 0.4s ease-out;
+}
+
+.exam-times-up-icon { font-size: 3rem; }
+.exam-times-up-content h2 {
+    margin: 12px 0 8px;
+    font-size: 1.8rem;
+    color: var(--danger, #C62828);
+}
+.exam-times-up-content p {
+    color: var(--text-secondary);
+}
+
+@keyframes exam-times-up-in {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* ---- Marking Progress Screen ---- */
+
+.exam-marking-progress {
+    max-width: 600px;
+    margin: 48px auto;
+    padding: var(--space-lg);
+    text-align: center;
+}
+
+.exam-marking-progress h2 {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-md);
+}
+
+.exam-marking-status {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+    font-size: 1rem;
+}
+
+.exam-marking-bar-container {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-secondary, #eee);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: var(--space-lg);
+}
+
+.exam-marking-bar {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.exam-marking-log {
+    text-align: left;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.exam-mark-log-item {
+    padding: 6px 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-light, #eee);
+}
+.exam-mark-log-item.done { color: var(--success, #2E7D32); }
+.exam-mark-log-item.error { color: var(--danger, #C62828); }
+.exam-mark-log-item.skipped { color: var(--text-secondary); }
+
+/* ---- Exam Results Screen ---- */
+
+.exam-results {
+    max-width: 900px;
+    margin: 24px auto;
+    padding: 0 var(--space-md);
+}
+
+.exam-results-header {
+    text-align: center;
+    padding: var(--space-lg) 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: var(--space-lg);
+}
+
+.exam-results-header h2 {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-sm);
+}
+
+.exam-score-big {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: var(--space-sm) 0;
+}
+
+.exam-score-earned { color: var(--primary); }
+.exam-score-slash { color: var(--text-secondary); }
+.exam-score-total { color: var(--text-secondary); }
+.exam-score-pct {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.exam-results-summary {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-lg);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: var(--space-sm);
+}
+
+/* Per-question result card */
+.exam-result-question {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.exam-result-q-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.exam-result-q-header h3 {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.exam-q-score {
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+}
+.exam-q-score.full { background: #e8f5e9; color: #2E7D32; }
+.exam-q-score.partial { background: #fff3e0; color: #E65100; }
+.exam-q-score.zero { background: #fce4ec; color: #C62828; }
+.exam-q-score.skipped { background: #f5f5f5; color: #757575; }
+.exam-q-score.error { background: #fce4ec; color: #C62828; }
+
+/* Part result within a question */
+.exam-result-part {
+    border-top: 1px solid var(--border-light, #eee);
+    padding-top: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+.exam-result-part-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    margin-bottom: var(--space-xs, 4px);
+}
+
+.exam-part-score {
+    font-size: 0.9rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+.exam-part-score.full { background: #e8f5e9; color: #2E7D32; }
+.exam-part-score.partial { background: #fff3e0; color: #E65100; }
+.exam-part-score.zero { background: #fce4ec; color: #C62828; }
+
+/* Side-by-side compare: student answer + worked solution */
+.exam-result-compare {
+    display: flex;
+    gap: var(--space-md);
+    margin: var(--space-sm) 0;
+}
+
+.exam-student-answer,
+.exam-worked-solution {
+    flex: 1;
+    min-width: 0;
+}
+
+.exam-compare-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.exam-canvas-snapshot {
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+
+.exam-sol-line {
+    padding: 4px 8px;
+    font-size: 0.9rem;
+    border-left: 3px solid transparent;
+    margin-bottom: 2px;
+}
+.exam-sol-line.correct { border-left-color: #4CAF50; color: #2E7D32; }
+.exam-sol-line.error-here {
+    border-left-color: #C62828;
+    color: #C62828;
+    background: rgba(198, 40, 40, 0.05);
+    font-weight: 600;
+}
+
+/* Marking criteria list in exam results */
+.exam-criteria-list {
+    margin: var(--space-sm) 0;
+}
+
+.exam-criterion {
+    padding: 4px 0;
+    font-size: 0.9rem;
+}
+.exam-criterion.met { color: #2E7D32; }
+.exam-criterion.not-met { color: #C62828; }
+.exam-criterion-icon { font-weight: 700; margin-right: 4px; }
+
+.exam-error-diagnosis {
+    margin-top: var(--space-xs, 4px);
+    padding: 8px 12px;
+    background: rgba(198, 40, 40, 0.05);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.exam-results-footer {
+    text-align: center;
+    padding: var(--space-lg) 0;
+}
+
+/* ---- Paper Exam Mode Styles ---- */
+
+.exam-paper-instructions {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-lg);
+    font-style: italic;
+}
+
+.exam-paper-part {
+    padding: var(--space-sm) 0;
+    border-top: 1px solid var(--border-light, #eee);
+}
+
+.exam-paper-criteria {
+    margin: var(--space-sm) 0;
+    padding-left: var(--space-sm);
+}
+
+.exam-criterion-label {
+    display: block;
+    padding: 6px 0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+}
+.exam-criterion-label:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.exam-criterion-cb {
+    margin-right: 8px;
+    transform: scale(1.15);
+}
+
+.exam-paper-submit {
+    text-align: center;
+    padding: var(--space-lg) 0;
+}
+
+/* ---- Responsive: Exam Mode ---- */
+
+@media (max-width: 700px) {
+    .exam-bar-inner {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .exam-bar-buttons {
+        width: 100%;
+        justify-content: stretch;
+    }
+    .exam-bar-buttons .btn {
+        flex: 1;
+    }
+    .exam-result-compare {
+        flex-direction: column;
+    }
+    .exam-results-summary {
+        flex-direction: column;
+        gap: var(--space-xs, 4px);
+    }
+}
+
+/* ---- Dark Mode: Exam ---- */
+[data-theme="dark"] .exam-q-score.full { background: rgba(46, 125, 50, 0.15); }
+[data-theme="dark"] .exam-q-score.partial { background: rgba(230, 81, 0, 0.15); }
+[data-theme="dark"] .exam-q-score.zero { background: rgba(198, 40, 40, 0.15); }
+[data-theme="dark"] .exam-q-score.skipped { background: rgba(255, 255, 255, 0.05); }
+[data-theme="dark"] .exam-part-score.full { background: rgba(46, 125, 50, 0.15); }
+[data-theme="dark"] .exam-part-score.partial { background: rgba(230, 81, 0, 0.15); }
+[data-theme="dark"] .exam-part-score.zero { background: rgba(198, 40, 40, 0.15); }
+[data-theme="dark"] .exam-marks-select { background: var(--card-bg); color: var(--text-primary); }
+[data-theme="dark"] .exam-sol-line.error-here { background: rgba(198, 40, 40, 0.1); }
+[data-theme="dark"] .exam-error-diagnosis { background: rgba(198, 40, 40, 0.1); }
+[data-theme="dark"] .exam-criterion-label:hover { background: rgba(255, 255, 255, 0.03); }
+
+/* ---- SYMPY BADGES: DARK MODE ---- */
+[data-theme="dark"] .wm-sympy-badge.verified {
+    background: rgba(40, 167, 69, 0.18);
+    color: #6fcf7d;
+    border-color: rgba(40, 167, 69, 0.35);
+}
+[data-theme="dark"] .wm-sympy-badge.disagree {
+    background: rgba(255, 153, 0, 0.18);
+    color: #ffb84d;
+    border-color: rgba(255, 153, 0, 0.35);
+}
+[data-theme="dark"] .wm-sympy-summary.ok {
+    background: rgba(40, 167, 69, 0.12);
+    border-color: rgba(40, 167, 69, 0.25);
+    color: #6fcf7d;
+}
+[data-theme="dark"] .wm-sympy-summary.warn {
+    background: rgba(255, 153, 0, 0.12);
+    border-color: rgba(255, 153, 0, 0.25);
+    color: #ffb84d;
+}
