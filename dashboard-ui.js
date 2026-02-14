@@ -408,6 +408,9 @@ var DashboardUI = {
         });
         listEl.innerHTML = html;
 
+        // Render LaTeX in problem type names
+        if (typeof UI !== 'undefined' && UI.renderMath) UI.renderMath(listEl);
+
         // Bind revise buttons
         listEl.querySelectorAll(".dash-revise-btn").forEach(function(btn) {
             btn.addEventListener("click", function() {
@@ -534,6 +537,7 @@ var DashboardUI = {
                 });
                 html += '</div>';
                 detailEl.innerHTML = html;
+                if (typeof UI !== 'undefined' && UI.renderMath) UI.renderMath(detailEl);
             }
         }
     },
@@ -676,9 +680,10 @@ var DashboardUI = {
                 '</tr>';
         });
         tbody.innerHTML = html;
-    },
 
-    // ---- 12.5 SESSION HISTORY CHART (HTML Canvas) ----
+        // Render LaTeX in problem type names
+        if (typeof UI !== 'undefined' && UI.renderMath) UI.renderMath(tbody);
+    },
     renderSessionChart: function() {
         var canvas = document.getElementById("dash-session-chart");
         var emptyEl = document.getElementById("dash-chart-empty");

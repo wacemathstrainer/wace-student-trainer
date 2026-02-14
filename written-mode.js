@@ -542,10 +542,10 @@ var WrittenMode = {
 
         html += '</div>'; // toolbar
 
-        // Canvas â€” stacked pair if bgImageUrl is provided
+        // Canvas Ã¢â‚¬â€ stacked pair if bgImageUrl is provided
         html += '<div class="wm-canvas-wrapper' + (bgImageUrl ? ' wm-canvas-stacked' : '') + '">';
         if (bgImageUrl) {
-            // Background canvas (axes/table image) â€” sits behind, pointer-events: none
+            // Background canvas (axes/table image) Ã¢â‚¬â€ sits behind, pointer-events: none
             html += '<canvas class="wm-bg-canvas" id="wm-bg-canvas-' + partLabel +
                 '" data-bg-url="' + StudyUI._escapeHtml(bgImageUrl) + '"' +
                 ' height="' + canvasHeight + '" style="height:' + canvasHeight + 'px;"></canvas>';
@@ -756,17 +756,46 @@ var WrittenMode = {
         .catch(function(err) {
             if (overlay) overlay.classList.add("wm-hidden");
 
-            // Offer fallback to paper self-assessment
-            var msg = "Marking failed: " + err.message +
-                "\n\nWould you like to self-assess this question instead?";
-            if (confirm(msg)) {
-                // Hide the mark bar before switching to paper mode
-                var markArea = document.getElementById("wm-mark-area");
-                if (markArea) markArea.classList.add("wm-hidden");
-                // Switch to paper mode for this question only
-                StudyUI.showSolution();
-            }
             console.error("WrittenMode marking error:", err);
+
+            // Show error UI in the results container instead of a raw confirm dialog
+            var container = document.getElementById("wm-results-container");
+            if (container) {
+                container.classList.remove("wm-hidden");
+                var errorHtml = '<div class="wm-error-fallback">';
+                errorHtml += '<div class="wm-error-fallback-icon">\u26A0\uFE0F</div>';
+                errorHtml += '<div class="wm-error-fallback-title">Marking failed</div>';
+                errorHtml += '<div class="wm-error-fallback-msg">' +
+                    StudyUI._escapeHtml(err.message) + '</div>';
+                errorHtml += '<div class="wm-error-fallback-actions">';
+                errorHtml += '<button class="btn btn-primary" id="wm-retry-mark-btn">' +
+                    '\u21BB Try Again</button>';
+                errorHtml += '<button class="btn btn-secondary" id="wm-self-assess-btn">' +
+                    'Self-Assess Instead</button>';
+                errorHtml += '</div></div>';
+                container.innerHTML = errorHtml;
+                container.scrollIntoView({ behavior: "smooth" });
+
+                document.getElementById("wm-retry-mark-btn").addEventListener("click", function() {
+                    container.classList.add("wm-hidden");
+                    container.innerHTML = "";
+                    WrittenMode.submitForMarking();
+                });
+                document.getElementById("wm-self-assess-btn").addEventListener("click", function() {
+                    container.classList.add("wm-hidden");
+                    container.innerHTML = "";
+                    var markArea = document.getElementById("wm-mark-area");
+                    if (markArea) markArea.classList.add("wm-hidden");
+                    StudyUI.showSolution();
+                });
+            } else {
+                // Fallback to confirm if container not found
+                if (confirm("Marking failed. Self-assess instead?")) {
+                    var markArea = document.getElementById("wm-mark-area");
+                    if (markArea) markArea.classList.add("wm-hidden");
+                    StudyUI.showSolution();
+                }
+            }
         });
     },
 
@@ -858,10 +887,12 @@ var WrittenMode = {
             html += '<div class="wm-marking-criteria">';
             html += '<div class="wm-marking-criteria-header">Marking Criteria</div>';
 
-            if (partResult.marks) {
+            if (partResult.marks && partResult.marks.length > 0) {
                 partResult.marks.forEach(function(mark, markIdx) {
-                    var criterion = questionPart.marking[mark.criterionIndex];
-                    if (!criterion) return;
+                    var criterion = questionPart.marking ? questionPart.marking[mark.criterionIndex] : null;
+                    // Fallback: use AI-provided text or generic label if criterion not found
+                    var criterionText = criterion ? criterion.text : (mark.criterionText || 'Criterion ' + (markIdx + 1));
+                    var criterionAwarded = criterion ? criterion.awarded : (mark.awarded ? '1' : '0');
                     var passClass = mark.awarded ? "passed" : "failed";
                     var icon = mark.awarded ? "\u2713" : "\u2717";
                     var clickAttr = "";
@@ -891,12 +922,23 @@ var WrittenMode = {
                     html += '<div class="wm-marking-row ' + passClass + '" id="wm-mark-' + idx + '-' + markIdx + '"' + clickAttr + '>';
                     html += '<div class="wm-mark-icon">' + icon + '</div>';
                     html += '<div class="wm-mark-detail">';
-                    html += '<div class="wm-mark-text">' + StudyUI._escapeHtml(criterion.text) +
-                        ' [' + criterion.awarded + ']' + hintHtml +
+                    html += '<div class="wm-mark-text">' + StudyUI._escapeHtml(criterionText) +
+                        ' [' + criterionAwarded + ']' + hintHtml +
                         '<span class="wm-override-label">overridden</span>' + verifyBadge + '</div>';
                     if (mark.reason) {
                         html += '<div class="wm-mark-reason">' + mark.reason + '</div>';
                     }
+                    html += '</div>';
+                    html += '</div>';
+                });
+            } else if (questionPart.marking && questionPart.marking.length > 0) {
+                // AI didn't return marks but question has marking criteria - show them unscored
+                questionPart.marking.forEach(function(criterion) {
+                    html += '<div class="wm-marking-row">';
+                    html += '<div class="wm-mark-icon">\u2014</div>';
+                    html += '<div class="wm-mark-detail">';
+                    html += '<div class="wm-mark-text">' + StudyUI._escapeHtml(criterion.text) +
+                        ' [' + criterion.awarded + ']</div>';
                     html += '</div>';
                     html += '</div>';
                 });

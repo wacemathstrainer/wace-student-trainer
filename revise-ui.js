@@ -122,6 +122,9 @@ var ReviseUI = {
 
             container.innerHTML = html;
             ReviseUI._bindTreeEvents(container);
+
+            // Render LaTeX in problem type names
+            if (typeof UI !== 'undefined' && UI.renderMath) UI.renderMath(container);
         });
     },
 

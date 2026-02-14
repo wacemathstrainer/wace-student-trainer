@@ -316,8 +316,15 @@ var StudyUI = {
         // Question header
         html += '<div class="question-card">';
         html += '<div class="question-header">';
+        // Build rich question reference: e.g. "WACE 2016 CA — Question 9"
+        var refParts = [];
+        if (q.sourceName) refParts.push(q.sourceName);
+        if (q.year) refParts.push(q.year);
+        if (q.sectionName) refParts.push(q.sectionName);
+        var refPrefix = refParts.length > 0 ? refParts.join(' ') + ' — ' : '';
+        var refText = refPrefix + (q.questionReference || questionInfo.filename || 'Question');
         html += '<h3 class="question-ref">' +
-            StudyUI._escapeHtml(q.questionReference || questionInfo.filename) + '</h3>';
+            StudyUI._escapeHtml(refText) + '</h3>';
         html += '<div class="question-badges">';
         html += '<span class="badge badge-section">' +
             StudyUI._escapeHtml(q.sectionName || "") + '</span>';

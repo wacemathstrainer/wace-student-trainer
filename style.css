@@ -922,10 +922,13 @@ body.dark-theme #welcome-screen {
 }
 
 .question-diagram {
-    max-width: 100%;
+    max-width: min(100%, 500px);
+    max-height: 400px;
+    width: auto;
     height: auto;
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
+    object-fit: contain;
 }
 
 
@@ -3698,6 +3701,25 @@ body.dark-theme input[type="range"] {
 .wm-all-correct-icon { font-size: 1.8rem; margin-bottom: 4px; }
 .wm-all-correct-text { font-weight: 600; color: var(--color-success); }
 
+.wm-error-fallback {
+    text-align: center;
+    padding: 24px 16px;
+}
+.wm-error-fallback-icon { font-size: 2rem; margin-bottom: 8px; }
+.wm-error-fallback-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+.wm-error-fallback-msg {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    word-break: break-word;
+}
+.wm-error-fallback-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 /* ---- PART RESULT ---- */
 
 .wm-part-result {
@@ -3799,8 +3821,8 @@ body.dark-theme input[type="range"] {
 }
 
 .wm-marking-row.overridden {
-    background: var(--blue-light);
-    border-left: 3px solid var(--blue);
+    background: var(--color-success-light);
+    border-left: 3px solid var(--color-success);
 }
 
 .wm-mark-icon {
@@ -3812,7 +3834,7 @@ body.dark-theme input[type="range"] {
 
 .wm-marking-row.passed .wm-mark-icon { color: var(--color-success); }
 .wm-marking-row.failed .wm-mark-icon { color: var(--color-danger); }
-.wm-marking-row.overridden .wm-mark-icon { color: var(--blue); }
+.wm-marking-row.overridden .wm-mark-icon { color: var(--color-success); }
 
 .wm-mark-detail { flex: 1; }
 
@@ -3842,7 +3864,7 @@ body.dark-theme input[type="range"] {
 .wm-override-label {
     display: none;
     font-size: 0.72rem;
-    color: var(--blue);
+    color: var(--color-success);
     margin-left: 8px;
     font-weight: 700;
     text-transform: uppercase;
