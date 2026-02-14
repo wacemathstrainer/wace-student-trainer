@@ -6,6 +6,7 @@ const TAUGHT_SCHEDULE = {
   "className": "12 Methods Per 2 \u2014 2026",
   "teacherName": "Mr Smith",
   "createdDate": "2026-02-01",
+  "apiKey": "sk-ant-your-key-here",
   "schedule": [
     {
       "date": "2026-02-03",

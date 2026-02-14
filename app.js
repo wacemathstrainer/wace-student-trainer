@@ -1514,15 +1514,14 @@ function mapErrorToCriteria(errorLine, totalLines, totalCriteria) {
 var WrittenMode = {
 
     // ---- API KEY MANAGEMENT ----
+    // The API key is set by the teacher in schedule.js (TAUGHT_SCHEDULE.apiKey).
+    // Students never need to enter or see it.
 
     getApiKey: function() {
-        try { return localStorage.getItem("wm_api_key") || ""; }
-        catch(e) { return ""; }
-    },
-
-    setApiKey: function(key) {
-        try { localStorage.setItem("wm_api_key", key); }
-        catch(e) { /* ignore */ }
+        if (typeof TAUGHT_SCHEDULE !== "undefined" && TAUGHT_SCHEDULE.apiKey) {
+            return TAUGHT_SCHEDULE.apiKey;
+        }
+        return "";
     },
 
     // ---- CANVAS ENGINE ----
@@ -2499,23 +2498,6 @@ var WrittenMode = {
     // ---- INIT ----
 
     init: function() {
-        // API key save button
-        var saveBtn = document.getElementById("btn-save-api-key");
-        if (saveBtn) {
-            saveBtn.addEventListener("click", function() {
-                var input = document.getElementById("settings-api-key");
-                var key = input ? input.value.trim() : "";
-                if (key && key.startsWith("sk-ant-")) {
-                    WrittenMode.setApiKey(key);
-                    WrittenMode.updateApiKeyStatus();
-                    input.value = "";
-                    alert("API key saved.");
-                } else if (key) {
-                    alert("That doesn't look like a valid Anthropic API key. It should start with 'sk-ant-'.");
-                }
-            });
-        }
-
         // Notation dismiss button
         var dismissBtn = document.getElementById("wm-notation-dismiss");
         if (dismissBtn) {
@@ -2524,22 +2506,15 @@ var WrittenMode = {
             });
         }
 
-        // Load existing key into status
-        WrittenMode.updateApiKeyStatus();
-    },
-
-    updateApiKeyStatus: function() {
-        var statusEl = document.getElementById("api-key-status");
-        if (!statusEl) return;
-        var key = WrittenMode.getApiKey();
-        if (key) {
-            statusEl.textContent = "\u2713 API key configured (" + key.substring(0, 12) + "...)";
-            statusEl.className = "api-key-status configured";
-        } else {
-            statusEl.textContent = "No API key configured";
-            statusEl.className = "api-key-status missing";
+        // If teacher hasn't provided an API key, disable Stylus toggles
+        if (!WrittenMode.getApiKey()) {
+            var stylusButtons = document.querySelectorAll('.config-toggle[data-value="stylus"]');
+            stylusButtons.forEach(function(btn) {
+                btn.disabled = true;
+                btn.title = "Your teacher has not enabled Written Mode for this class";
+            });
         }
-    }
+    },
 };
 
 
@@ -3147,7 +3122,7 @@ var StudyUI = {
 
         // Check API key if stylus mode
         if (answerMethod === "stylus" && !WrittenMode.getApiKey()) {
-            alert("No API key configured for Written Mode. Please add your Anthropic API key in Settings before using Stylus mode.");
+            alert("Written Mode is not enabled for this class. Your teacher needs to add an API key to the schedule configuration.");
             return;
         }
 
@@ -4601,7 +4576,7 @@ var ReviseUI = {
 
         // Check API key if stylus mode
         if (answerMethod === "stylus" && !WrittenMode.getApiKey()) {
-            alert("No API key configured for Written Mode. Please add your Anthropic API key in Settings before using Stylus mode.");
+            alert("Written Mode is not enabled for this class. Your teacher needs to add an API key to the schedule configuration.");
             if (reviseHome) reviseHome.style.display = "block";
             if (reviseArea) reviseArea.style.display = "none";
             return;

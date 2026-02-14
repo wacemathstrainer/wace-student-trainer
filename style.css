@@ -3215,38 +3215,6 @@ body.dark-theme input[type="range"] {
    Canvas drawing, AI marking results, notation popup, overlays
    ============================================================================ */
 
-/* ---- API KEY SETTINGS ---- */
-
-.settings-desc {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-bottom: var(--space-sm);
-}
-
-.api-key-row {
-    display: flex;
-    gap: var(--space-sm);
-    margin-bottom: var(--space-xs);
-}
-
-.api-key-input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 0.88rem;
-    font-family: 'JetBrains Mono', monospace;
-}
-
-.api-key-status {
-    font-size: 0.82rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-
-.api-key-status.configured { color: var(--color-success); }
-.api-key-status.missing { color: var(--color-danger); }
-
 /* ---- STYLUS HINT ON CONFIG ---- */
 
 .config-stylus-hint {
