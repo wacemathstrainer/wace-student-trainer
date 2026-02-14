@@ -1662,35 +1662,8 @@ var UI = {
             });
         }
 
-        // Revise answer method toggle: show/hide stylus hint
-        var reviseAnswerGroup = document.getElementById("revise-answer-group");
-        if (reviseAnswerGroup) {
-            reviseAnswerGroup.querySelectorAll(".config-toggle").forEach(function(btn) {
-                btn.addEventListener("click", function() {
-                    var hint = document.getElementById("revise-stylus-hint");
-                    if (hint) {
-                        if (btn.getAttribute("data-value") === "stylus") {
-                            hint.style.display = "block";
-                            // Check for API key
-                            DB.get(STORE_CONFIG, "apiKey").then(function(rec) {
-                                if (!rec || !rec.value) {
-                                    hint.textContent = "No API key configured. Add one in Settings to use Stylus mode.";
-                                    hint.className = "config-hint config-hint-warn";
-                                } else {
-                                    hint.textContent = "AI will mark your handwritten answers.";
-                                    hint.className = "config-hint";
-                                }
-                            }).catch(function() {
-                                hint.textContent = "Requires an API key in Settings. AI will mark your handwritten answers.";
-                                hint.className = "config-hint";
-                            });
-                        } else {
-                            hint.style.display = "none";
-                        }
-                    }
-                });
-            });
-        }
+        // Revise answer method toggle: currently only Paper is active
+        // (Stylus/Written Mode will be enabled in a future build)
 
         // Revise exam count slider
         var reviseCountInput = document.getElementById("revise-exam-count-input");
@@ -3753,10 +3726,11 @@ var ReviseUI = {
     refresh: function() {
         var container = document.getElementById("topic-tree-container");
         var emptyHint = document.getElementById("revise-empty-hint");
-        if (!container) return;
+        if (!container) { console.warn("ReviseUI: no topic-tree-container found"); return; }
 
         var taxonomy = QuestionEngine.taxonomyData;
         if (!taxonomy || Object.keys(taxonomy).length === 0) {
+            console.warn("ReviseUI: no taxonomy data loaded");
             container.style.display = "none";
             if (emptyHint) emptyHint.style.display = "block";
             return;
@@ -3769,11 +3743,18 @@ var ReviseUI = {
         });
         ReviseUI._unlockedSet = unlockedSet;
 
+        console.log("ReviseUI: " + QuestionEngine.unlockedProblemTypes.length +
+            " unlocked PTs, " + Object.keys(taxonomy).length + " taxonomy topics");
+
         // Check if any topics have unlocked PTs
         var hasAny = false;
         Object.keys(taxonomy).forEach(function(topic) {
             var pts = ReviseUI._getProblemTypesForNode(taxonomy, topic, null, null);
-            if (pts.some(function(pt) { return unlockedSet[pt]; })) hasAny = true;
+            var matched = pts.filter(function(pt) { return unlockedSet[pt]; });
+            if (matched.length > 0) {
+                hasAny = true;
+                console.log("ReviseUI: Topic '" + topic + "' has " + matched.length + " unlocked PTs");
+            }
         });
 
         if (!hasAny) {
@@ -3791,12 +3772,21 @@ var ReviseUI = {
             records.forEach(function(r) { masteryMap[r.problemType] = r; });
             ReviseUI._masteryMap = masteryMap;
 
+            console.log("ReviseUI: Rendering topics, " + records.length + " mastery records loaded");
             ReviseUI._renderTopics();
             ReviseUI._clearSubtopics();
             ReviseUI._clearProblemTypes();
             ReviseUI._hideActionBar();
             ReviseUI._selectedTopic = null;
             ReviseUI._selectedSubtopic = null;
+        }).catch(function(err) {
+            console.error("ReviseUI: Failed to load mastery data:", err);
+            // Still render topics even without mastery data
+            ReviseUI._masteryMap = {};
+            ReviseUI._renderTopics();
+            ReviseUI._clearSubtopics();
+            ReviseUI._clearProblemTypes();
+            ReviseUI._hideActionBar();
         });
     },
 

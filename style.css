@@ -671,6 +671,12 @@ body.dark-theme #welcome-screen {
     background: var(--accent-primary-hover);
 }
 
+.config-toggle[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 #start-session-btn {
     margin-bottom: var(--space-md);
 }
