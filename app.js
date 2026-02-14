@@ -1612,6 +1612,68 @@ var WrittenMode = {
         return "";
     },
 
+    /**
+     * Test the API connection by sending a minimal request.
+     * Returns a Promise that resolves to a status object.
+     */
+    testAPIConnection: function() {
+        var resultEl = document.getElementById("api-test-result");
+        var btnEl = document.getElementById("btn-test-api");
+        if (resultEl) resultEl.innerHTML = '<span style="color:var(--text-muted)">\u23F3 Testing...</span>';
+        if (btnEl) btnEl.disabled = true;
+
+        var startTime = Date.now();
+
+        return WrittenMode._callClaudeAPI(
+            "You are a test endpoint. Reply with exactly: OK",
+            [{ type: "text", text: "Connection test. Reply with exactly: OK" }]
+        ).then(function(resp) {
+            var elapsed = Date.now() - startTime;
+            if (!resp.ok) {
+                return resp.json().then(function(data) {
+                    var msg = "";
+                    // Anthropic error format: {type:"error", error:{type:"...", message:"..."}}
+                    if (data.error && data.error.message) {
+                        msg = data.error.message;
+                    } else if (data.error && typeof data.error === "string") {
+                        msg = data.error;
+                    } else {
+                        msg = "HTTP " + resp.status;
+                    }
+
+                    if (resp.status === 401 || (msg && msg.toLowerCase().indexOf("api key") >= 0)) {
+                        return { ok: false, error: "invalid_key", message: "API key is invalid or expired. Redeploy the Cloud Function with a fresh key.", elapsed: elapsed };
+                    } else if (resp.status === 429) {
+                        return { ok: false, error: "rate_limit", message: "Rate limited. Try again in a minute.", elapsed: elapsed };
+                    } else {
+                        return { ok: false, error: "api_error", message: "API error: " + msg, elapsed: elapsed };
+                    }
+                }).catch(function() {
+                    return { ok: false, error: "parse_error", message: "Proxy returned HTTP " + resp.status + " (non-JSON response)", elapsed: elapsed };
+                });
+            }
+            return resp.json().then(function() {
+                return { ok: true, message: "Connection working (" + elapsed + "ms)", elapsed: elapsed };
+            });
+        }).catch(function(err) {
+            var elapsed = Date.now() - startTime;
+            if (err.name === "TypeError" && err.message.indexOf("fetch") >= 0) {
+                return { ok: false, error: "network", message: "Cannot reach the marking server. Check internet connection or if the endpoint URL is correct." };
+            }
+            return { ok: false, error: "network", message: "Network error: " + err.message, elapsed: elapsed };
+        }).then(function(result) {
+            if (btnEl) btnEl.disabled = false;
+            if (resultEl) {
+                if (result.ok) {
+                    resultEl.innerHTML = '<span style="color:var(--correct-green)">\u2705 ' + result.message + '</span>';
+                } else {
+                    resultEl.innerHTML = '<span style="color:var(--wrong-red)">\u274C ' + result.message + '</span>';
+                }
+            }
+            return result;
+        });
+    },
+
     // ---- CANVAS ENGINE ----
 
     CanvasEngine: {
@@ -3087,9 +3149,17 @@ var ExamMode = {
         // Process questions sequentially with delay
         var results = [];
         var current = 0;
+        var authFailed = false; // Track if we hit an auth error to abort early
 
         function markNext() {
-            if (current >= total) {
+            if (current >= total || authFailed) {
+                // If auth failed, mark remaining as failed
+                if (authFailed) {
+                    while (current < total) {
+                        results.push({ answer: answers[current], aiResult: null, error: "Aborted \u2014 API key issue", skipped: false });
+                        current++;
+                    }
+                }
                 ExamMode.showExamResults(results);
                 return;
             }
@@ -3150,19 +3220,39 @@ var ExamMode = {
                     setTimeout(markNext, 1500); // Rate limit: 1.5s between calls
                 });
             }).catch(function(err) {
+                var errMsg = err.message || "Unknown error";
+                var isAuthError = errMsg.toLowerCase().indexOf("api key") >= 0 ||
+                    errMsg.toLowerCase().indexOf("invalid") >= 0 ||
+                    errMsg.toLowerCase().indexOf("authentication") >= 0 ||
+                    errMsg.toLowerCase().indexOf("unauthorized") >= 0;
+
                 results.push({
                     answer: answer,
                     aiResult: null,
-                    error: err.message,
+                    error: errMsg,
                     skipped: false
                 });
+
                 if (logEl) {
                     logEl.innerHTML += '<div class="exam-mark-log-item error">\u274C Q' +
-                        (current + 1) + ': Marking failed \u2014 ' +
-                        err.message.substring(0, 60) + '</div>';
+                        (current + 1) + ': ' + errMsg.substring(0, 80) + '</div>';
                 }
+
+                if (isAuthError && current === 0) {
+                    // First question failed with auth error - abort all remaining
+                    authFailed = true;
+                    if (logEl) {
+                        logEl.innerHTML += '<div class="exam-mark-log-item error" style="margin-top:12px;padding:12px;border-left:3px solid var(--wrong-red)">' +
+                            '<strong>\u26A0\uFE0F API Key Error \u2014 Stopping batch marking</strong><br>' +
+                            'The marking server rejected the API key. Remaining questions will use self-assessment instead.<br><br>' +
+                            '<strong>To fix:</strong> Go to Settings \u2192 Test API Connection to diagnose, ' +
+                            'then redeploy the Cloud Function with a fresh Anthropic API key.</div>';
+                    }
+                    if (statusEl) statusEl.textContent = "API key error \u2014 switching to self-assessment";
+                }
+
                 current++;
-                setTimeout(markNext, 1000);
+                setTimeout(markNext, authFailed ? 200 : 1000);
             });
         }
 
@@ -3471,6 +3561,25 @@ var ExamMode = {
         if (questionsSkipped > 0) html += ', ' + questionsSkipped + ' skipped';
         if (questionsFailed > 0) html += ', ' + questionsFailed + ' failed';
         html += '</span></div>';
+
+        // Show API error banner if questions failed
+        if (questionsFailed > 0) {
+            var hasAuthError = results.some(function(r) {
+                return r.error && (r.error.toLowerCase().indexOf("api key") >= 0 ||
+                    r.error.toLowerCase().indexOf("aborted") >= 0);
+            });
+            html += '<div class="exam-api-error-banner">';
+            if (hasAuthError) {
+                html += '<strong>\u26A0\uFE0F API Key Issue</strong> \u2014 ' + questionsFailed + ' question(s) could not be marked by AI. ' +
+                    'Worked solutions are shown below so you can self-assess. ' +
+                    'To fix: go to <strong>Settings \u2192 Test API Connection</strong> to diagnose.';
+            } else {
+                html += '<strong>\u26A0\uFE0F Marking Error</strong> \u2014 ' + questionsFailed + ' question(s) failed. ' +
+                    'Worked solutions are shown below so you can self-assess.';
+            }
+            html += '</div>';
+        }
+
         html += '</div>';
 
         // Per-question results
@@ -3587,6 +3696,40 @@ var ExamMode = {
 
                     html += '</div>'; // .exam-result-part
                 });
+            } else if (!r.skipped && !r.aiResult) {
+                // Failed question - show error and student's canvas for self-review
+                html += '<div class="exam-result-part">';
+                html += '<div class="exam-marking-error-detail">';
+                html += '<p style="color:var(--wrong-red);margin-bottom:8px">';
+                html += '<strong>\u26A0\uFE0F Marking failed:</strong> ' +
+                    StudyUI._escapeHtml(r.error || "Unknown error") + '</p>';
+                if ((r.error || "").toLowerCase().indexOf("api key") >= 0) {
+                    html += '<p style="color:var(--text-muted);font-size:0.9em">Go to Settings \u2192 Test API Connection to diagnose. The Cloud Function may need a fresh API key.</p>';
+                }
+                html += '</div>';
+
+                // Still show the student's canvas snapshots if available
+                q.parts.forEach(function(part) {
+                    var imgUrl = r.answer.partImages[part.partLabel];
+                    if (imgUrl) {
+                        html += '<div class="exam-student-answer" style="margin-top:8px">';
+                        html += '<div class="exam-compare-label">Your Answer \u2014 (' + StudyUI._escapeHtml(part.partLabel) + ')</div>';
+                        html += '<img src="' + imgUrl + '" class="exam-canvas-snapshot" alt="Your handwritten answer">';
+                        html += '</div>';
+                    }
+                    // Show worked solution so student can self-assess
+                    if (part.originalSolution && part.originalSolution.length > 0) {
+                        html += '<div class="exam-worked-solution" style="margin-top:8px">';
+                        html += '<div class="exam-compare-label">Worked Solution (self-assess)</div>';
+                        part.originalSolution.forEach(function(sol, si) {
+                            if (sol.shown === false) return;
+                            html += '<div class="exam-sol-line">' +
+                                (si + 1) + '. ' + StudyUI._renderSolutionText(sol.text) + '</div>';
+                        });
+                        html += '</div>';
+                    }
+                });
+                html += '</div>'; // .exam-result-part
             }
 
             html += '</div>'; // .exam-result-question
@@ -3958,6 +4101,14 @@ var UI = {
             }
         });
 
+        // Test API connection button
+        var testApiBtn = document.getElementById("btn-test-api");
+        if (testApiBtn) {
+            testApiBtn.addEventListener("click", function() {
+                WrittenMode.testAPIConnection();
+            });
+        }
+
         // Emergency reset button
         var resetBtn = document.getElementById("btn-emergency-reset");
         if (resetBtn) {
@@ -4250,6 +4401,12 @@ var UI = {
                 lines.push('\u2014 SymPy verification: <span style="color:var(--text-muted)">not configured</span>');
             }
             sympyEl.innerHTML = lines.join('<br>');
+        }
+
+        // Show/hide the API test button
+        var apiTestDiv = document.getElementById("settings-api-test");
+        if (apiTestDiv) {
+            apiTestDiv.style.display = WrittenMode.hasMarkingAPI() ? "block" : "none";
         }
 
         // Check storage usage
