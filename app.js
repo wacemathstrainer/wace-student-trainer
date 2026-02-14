@@ -5027,6 +5027,34 @@ var StudyUI = {
             html += '</div>';
         }
 
+        // Examiner comment and clarification (always visible, before worked solutions)
+        if (q.examinerComment) {
+            html += '<div class="examiner-comment">';
+            html += '<div class="examiner-label">' + SYMBOLS.GRADUATION +
+                ' Examiner Comment</div>';
+            html += '<p>' + StudyUI._escapeHtml(q.examinerComment) + '</p>';
+            html += '</div>';
+
+            // Extract clarification from guided solutions
+            var clarification = "";
+            for (var ci = q.parts.length - 1; ci >= 0; ci--) {
+                if (q.parts[ci].guidedSolution) {
+                    var extracted = StudyUI._extractExaminerContent(q.parts[ci].guidedSolution);
+                    if (extracted.clarification) {
+                        clarification = extracted.clarification;
+                        break;
+                    }
+                }
+            }
+            if (clarification) {
+                html += '<div class="examiner-clarification">';
+                html += '<div class="examiner-clarification-label">' +
+                    SYMBOLS.BOOK + ' This comment clarified</div>';
+                html += '<p>' + StudyUI._escapeHtml(clarification) + '</p>';
+                html += '</div>';
+            }
+        }
+
         q.parts.forEach(function(part, partIdx) {
             html += '<div class="solution-part" data-part-idx="' + partIdx + '">';
 
@@ -5127,34 +5155,6 @@ var StudyUI = {
 
             html += '</div>'; // .solution-part
         });
-
-        // Examiner comment (always visible, after all parts)
-        if (q.examinerComment) {
-            html += '<div class="examiner-comment">';
-            html += '<div class="examiner-label">' + SYMBOLS.GRADUATION +
-                ' Examiner Comment</div>';
-            html += '<p>' + StudyUI._escapeHtml(q.examinerComment) + '</p>';
-            html += '</div>';
-
-            // Extract clarification from guided solutions
-            var clarification = "";
-            for (var ci = q.parts.length - 1; ci >= 0; ci--) {
-                if (q.parts[ci].guidedSolution) {
-                    var extracted = StudyUI._extractExaminerContent(q.parts[ci].guidedSolution);
-                    if (extracted.clarification) {
-                        clarification = extracted.clarification;
-                        break;
-                    }
-                }
-            }
-            if (clarification) {
-                html += '<div class="examiner-clarification">';
-                html += '<div class="examiner-clarification-label">' +
-                    SYMBOLS.BOOK + ' This comment clarified</div>';
-                html += '<p>' + StudyUI._escapeHtml(clarification) + '</p>';
-                html += '</div>';
-            }
-        }
 
         // Next question / end session (hidden until all parts assessed)
         html += '<div id="next-question-area" style="display:none;">';
