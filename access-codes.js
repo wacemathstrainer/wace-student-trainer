@@ -334,8 +334,9 @@ var AccessControl = {
                 return { valid: true, alreadyMine: false };
             })
             .catch(function(err) {
-                console.error("AccessControl: Verify failed:", err);
-                return { valid: false, reason: "Could not verify the code. Check your internet connection." };
+                // Network error (blocked, offline, etc.) -- trust local credentials
+                console.warn("AccessControl: Verify failed (network):", err.message || err);
+                return { valid: true, alreadyMine: true, offline: true };
             });
     },
 
