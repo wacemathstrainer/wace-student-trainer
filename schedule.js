@@ -6,7 +6,6 @@ const TAUGHT_SCHEDULE = {
   "className": "12 Methods Per 2 \u2014 2026",
   "teacherName": "Mr Smith",
   "createdDate": "2026-02-01",
-  "apiKey": "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",
   "sympyEndpoint": "https://australia-southeast1-wace-trainer.cloudfunctions.net/verify",
   "schedule": [
     {
