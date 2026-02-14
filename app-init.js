@@ -92,30 +92,11 @@ function initApp() {
 
 // Start when DOM is ready
 window.addEventListener("DOMContentLoaded", function() {
-    // Set up skip link handler (allows students to use app without access code)
-    var skipLink = document.getElementById("access-skip-link");
-    if (skipLink) {
-        skipLink.addEventListener("click", function(e) {
-            e.preventDefault();
-            var codeScreen = document.getElementById("access-code-screen");
-            if (codeScreen) codeScreen.style.display = "none";
-            initApp();
-        });
-    }
-
     // Check access control first (shows code screen if needed)
     if (typeof AccessControl !== "undefined") {
         AccessControl.init().then(function(result) {
             if (result.granted) {
                 initApp();
-            } else {
-                // Show skip option after a delay (for students without codes)
-                var skipHint = document.getElementById("access-skip-hint");
-                if (skipHint) {
-                    setTimeout(function() {
-                        skipHint.style.display = "block";
-                    }, 3000);
-                }
             }
         });
     } else {
