@@ -465,22 +465,6 @@ var WrittenMode = {
         }
     },
 
-    toggleScribble: function(partLabel, btn) {
-        var wrap = document.getElementById("wm-scribble-wrap-" + partLabel);
-        if (!wrap) return;
-        var isHidden = wrap.classList.contains("wm-scribble-hidden");
-        wrap.classList.toggle("wm-scribble-hidden");
-        if (btn) btn.classList.toggle("active", isHidden);
-        // Init scribble canvas on first show if not already initialised
-        if (isHidden) {
-            var scribbleId = "scribble-" + partLabel;
-            var sc = document.getElementById("wm-canvas-" + scribbleId);
-            if (sc && !WrittenMode.CanvasEngine.canvases[scribbleId]) {
-                WrittenMode.CanvasEngine.init(scribbleId, sc);
-            }
-        }
-    },
-
     checkMarkButton: function() {
         var q = StudyUI.currentQuestion;
         if (!q || !q.parts) return;
@@ -556,20 +540,12 @@ var WrittenMode = {
             '\uD83D\uDDD1 Clear</button>';
         html += '</div>';
 
-        // Rough Working toggle (right-aligned) - only for non-draw-on questions
-        if (!bgImageUrl) {
-            html += '<div class="wm-toolbar-group wm-toolbar-right">';
-            html += '<button class="wm-tool-btn wm-rough-toggle" id="wm-rough-toggle-' + partLabel + '" ' +
-                'onclick="WrittenMode.toggleScribble(\'' + partLabel + '\', this)">Rough</button>';
-            html += '</div>';
-        }
-
         html += '</div>'; // toolbar
 
-        // Canvas ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â stacked pair if bgImageUrl is provided
+        // Canvas -- stacked pair if bgImageUrl is provided
         html += '<div class="wm-canvas-wrapper' + (bgImageUrl ? ' wm-canvas-stacked' : '') + '">';
         if (bgImageUrl) {
-            // Background canvas (axes/table image) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â sits behind, pointer-events: none
+            // Background canvas (axes/table image) -- sits behind, pointer-events: none
             html += '<canvas class="wm-bg-canvas" id="wm-bg-canvas-' + partLabel +
                 '" data-bg-url="' + StudyUI._escapeHtml(bgImageUrl) + '"' +
                 ' height="' + canvasHeight + '" style="height:' + canvasHeight + 'px;"></canvas>';
@@ -587,10 +563,10 @@ var WrittenMode = {
         html += '</div>'; // canvas-area
         html += '</div>'; // canvas-main
 
-        // Scribble pad â€” hidden for draw-on questions (student draws on the image instead)
+        // Scribble pad -- hidden for draw-on questions (student draws on the image instead)
         if (!bgImageUrl) {
             var scribbleId = "scribble-" + partLabel;
-            html += '<div class="wm-canvas-scribble wm-scribble-hidden" id="wm-scribble-wrap-' + partLabel + '">';
+            html += '<div class="wm-canvas-scribble">';
             html += '<div class="wm-canvas-area">';
             html += '<div class="wm-scribble-label">Rough Working</div>';
             html += '<div class="wm-canvas-toolbar">';
@@ -639,10 +615,7 @@ var WrittenMode = {
                 }
             }
             var sc = document.getElementById("wm-canvas-scribble-" + part.partLabel);
-            // Scribble canvas starts hidden; lazy-init when toggled visible
-            if (sc && !sc.closest(".wm-scribble-hidden")) {
-                WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
-            }
+            if (sc) WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
         });
     },
 
@@ -889,34 +862,6 @@ var WrittenMode = {
             html += '</div>';
         }
 
-        // Examiner comment and clarification (same as non-stylus mode)
-        if (q.examinerComment) {
-            html += '<div class="examiner-comment">';
-            html += '<div class="examiner-label">' + SYMBOLS.GRADUATION +
-                ' Examiner Comment</div>';
-            html += '<p>' + StudyUI._escapeHtml(q.examinerComment) + '</p>';
-            html += '</div>';
-
-            // Extract clarification from guided solutions
-            var clarification = "";
-            for (var ci = q.parts.length - 1; ci >= 0; ci--) {
-                if (q.parts[ci].guidedSolution) {
-                    var extracted = StudyUI._extractExaminerContent(q.parts[ci].guidedSolution);
-                    if (extracted.clarification) {
-                        clarification = extracted.clarification;
-                        break;
-                    }
-                }
-            }
-            if (clarification) {
-                html += '<div class="examiner-clarification">';
-                html += '<div class="examiner-clarification-label">' +
-                    SYMBOLS.BOOK + ' This comment clarified</div>';
-                html += '<p>' + StudyUI._escapeHtml(clarification) + '</p>';
-                html += '</div>';
-            }
-        }
-
         // SymPy verification summary
         if (sympyData && sympyData.totalChecks > 0) {
             var vClass = sympyData.disagreements > 0 ? "wm-sympy-summary warn" : "wm-sympy-summary ok";
@@ -938,10 +883,6 @@ var WrittenMode = {
             if (!questionPart) return;
 
             html += '<div class="wm-part-result">';
-
-            // Wrap in solution-part structure for side-by-side guided layout
-            html += '<div class="solution-part" data-part-idx="' + idx + '">';
-            html += '<div class="solution-part-main" id="wm-sol-main-' + idx + '">';
 
             var scoreClass = "zero";
             if (partResult.totalAwarded === partResult.totalAvailable) scoreClass = "full";
@@ -1074,24 +1015,6 @@ var WrittenMode = {
                 html += '</div>';
             }
 
-            // Per-part guided toggle button
-            if (questionPart.guidedSolution) {
-                html += '<div class="guided-part-trigger" id="wm-guided-trigger-' + idx + '">';
-                html += '<button class="btn btn-guided-part" ' +
-                    'onclick="WrittenMode.showPartGuided(' + idx + ')">' +
-                    SYMBOLS.BOOK + ' Show walkthrough</button>';
-                html += '</div>';
-            }
-
-            html += '</div>'; // .solution-part-main
-
-            // Guided solution panel (hidden, right side)
-            if (questionPart.guidedSolution) {
-                html += '<div class="solution-part-guided" id="wm-sol-guided-' + idx +
-                    '" style="display:none;"></div>';
-            }
-
-            html += '</div>'; // .solution-part
             html += '</div>'; // .wm-part-result
         });
 
@@ -1169,75 +1092,6 @@ var WrittenMode = {
             }
         });
         StudyUI._anotherTargetPTs = wrongPTs.length > 0 ? wrongPTs : allPTs;
-    },
-
-    // ---- PER-PART GUIDED WALKTHROUGH ----
-
-    showPartGuided: function(partIdx) {
-        var q = StudyUI.currentQuestion;
-        if (!q || !q.parts || !q.parts[partIdx]) return;
-
-        var part = q.parts[partIdx];
-        var guidedPanel = document.getElementById("wm-sol-guided-" + partIdx);
-        var trigger = document.getElementById("wm-guided-trigger-" + partIdx);
-        var solPart = guidedPanel ? guidedPanel.closest(".solution-part") : null;
-
-        if (!guidedPanel || !part.guidedSolution) return;
-
-        // Toggle: if already showing, hide it
-        if (guidedPanel.style.display !== "none") {
-            guidedPanel.style.display = "none";
-            if (solPart) solPart.classList.remove("solution-part-expanded");
-            if (trigger) {
-                trigger.querySelector("button").textContent =
-                    SYMBOLS.BOOK + " Show walkthrough";
-            }
-            return;
-        }
-
-        // Record guided access (once per question)
-        if (!StudyUI.guidedAccessedThisQuestion) {
-            StudyUI.guidedAccessedThisQuestion = true;
-            var pts = [];
-            q.parts.forEach(function(p) {
-                if (p.problemType && pts.indexOf(p.problemType) === -1) {
-                    pts.push(p.problemType);
-                }
-            });
-            SessionEngine.recordGuidedAccess(pts);
-        }
-
-        // Extract clean guided text (strip examiner note)
-        var extracted = StudyUI._extractExaminerContent(part.guidedSolution);
-        var cleanText = extracted.cleanGuided || part.guidedSolution;
-
-        var html = '<div class="guided-panel-content">';
-        html += '<h4 class="guided-panel-title">' + SYMBOLS.BOOK +
-            ' Walkthrough \u2014 Part (' + StudyUI._escapeHtml(part.partLabel) + ')</h4>';
-
-        // Split on \\n for line breaks
-        var lines = cleanText.split("\\n");
-        lines.forEach(function(line) {
-            line = line.trim();
-            if (line === "" || line === "---") {
-                html += '<br>';
-            } else {
-                html += '<p class="guided-line">' +
-                    StudyUI._formatGuidedLine(line) + '</p>';
-            }
-        });
-
-        html += '</div>';
-        guidedPanel.innerHTML = html;
-        guidedPanel.style.display = "block";
-
-        if (solPart) solPart.classList.add("solution-part-expanded");
-        if (trigger) {
-            trigger.querySelector("button").textContent =
-                SYMBOLS.BOOK + " Hide walkthrough";
-        }
-
-        UI.renderMath(guidedPanel);
     },
 
     // ---- NOTATION POPUP ----
@@ -1323,7 +1177,8 @@ var WrittenMode = {
         }
 
         // Update part score display
-        var partScoreEl = rowEl.closest(".wm-part-result").querySelector(".wm-part-result-score");
+        var partScoreEl = document.querySelector(
+            "#wm-results-container .wm-part-result:nth-child(" + (partIdx + 2) + ") .wm-part-result-score");
         if (partScoreEl) {
             partScoreEl.textContent = partResult.totalAwarded + " / " + partResult.totalAvailable;
             if (partResult.totalAwarded === partResult.totalAvailable) {
@@ -1527,7 +1382,9 @@ var WrittenMode = {
             "x-intercept at approximately (2,0), y-intercept at (0,-4), and a minimum turning point near (1,-5)').\n" +
             "- For notation feedback on visual questions, check axis labels and feature labels instead of equation notation.\n\n" +
 
-            "OTHER: errorLine is 1-indexed. errorType is setup/execution/interpretation/misread/null. " +
+            "OTHER: errorLine is 1-indexed. errorType is setup/execution/interpretation/misread/null.\n\n" +
+            "RESPONSE FORMAT: Respond with ONLY the JSON object. Do NOT include any preamble, commentary, " +
+            "explanation, or markdown formatting. Your entire response must be parseable by JSON.parse(). " +
             "Start your response with { and end with }.";
     },
 

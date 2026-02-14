@@ -22,63 +22,115 @@ var AccessControl = {
     TIMEOUT_MS: 4000,         // How long to wait for Firebase before falling back
     firebaseAvailable: false, // Set to true once Firebase responds successfully
     IDB_NAME: "wace_credentials",
+    IDB_VERSION: 1,
     IDB_STORE: "creds",
 
-    // ---- IndexedDB backup (survives localStorage clears) ----
+    // ---- IndexedDB credential persistence (backup for localStorage) ----
 
-    _openIDB: function() {
+    /**
+     * Open the small dedicated credentials IndexedDB.
+     * @private
+     */
+    _openCredDB: function() {
         return new Promise(function(resolve, reject) {
-            var req = indexedDB.open(AccessControl.IDB_NAME, 1);
-            req.onupgradeneeded = function(e) {
-                e.target.result.createObjectStore(AccessControl.IDB_STORE);
+            var request = indexedDB.open(AccessControl.IDB_NAME, AccessControl.IDB_VERSION);
+            request.onupgradeneeded = function(e) {
+                var db = e.target.result;
+                if (!db.objectStoreNames.contains(AccessControl.IDB_STORE)) {
+                    db.createObjectStore(AccessControl.IDB_STORE, { keyPath: "key" });
+                }
             };
-            req.onsuccess = function(e) { resolve(e.target.result); };
-            req.onerror = function() { reject(req.error); };
+            request.onsuccess = function(e) { resolve(e.target.result); };
+            request.onerror = function(e) {
+                console.warn("AccessControl: Credential IDB open failed", e.target.error);
+                resolve(null);
+            };
         });
     },
 
-    _saveCredential: function(key, value) {
-        // Save to both localStorage and IndexedDB
-        localStorage.setItem(key, value);
-        AccessControl._openIDB().then(function(db) {
-            var tx = db.transaction(AccessControl.IDB_STORE, "readwrite");
-            tx.objectStore(AccessControl.IDB_STORE).put(value, key);
-        }).catch(function() { /* IDB not available, localStorage still works */ });
-    },
-
-    _removeCredential: function(key) {
-        localStorage.removeItem(key);
-        AccessControl._openIDB().then(function(db) {
-            var tx = db.transaction(AccessControl.IDB_STORE, "readwrite");
-            tx.objectStore(AccessControl.IDB_STORE).delete(key);
-        }).catch(function() {});
+    /**
+     * Save a credential to IndexedDB.
+     * @private
+     */
+    _idbSet: function(key, value) {
+        return AccessControl._openCredDB().then(function(db) {
+            if (!db) return;
+            return new Promise(function(resolve) {
+                var tx = db.transaction(AccessControl.IDB_STORE, "readwrite");
+                tx.objectStore(AccessControl.IDB_STORE).put({ key: key, value: value });
+                tx.oncomplete = function() { resolve(); };
+                tx.onerror = function() { resolve(); };
+            });
+        }).catch(function() { /* silent */ });
     },
 
     /**
-     * Restore credentials from IndexedDB into localStorage if missing.
-     * Called at the start of init() to recover from localStorage wipes.
+     * Get a credential from IndexedDB.
+     * @private
+     */
+    _idbGet: function(key) {
+        return AccessControl._openCredDB().then(function(db) {
+            if (!db) return null;
+            return new Promise(function(resolve) {
+                var tx = db.transaction(AccessControl.IDB_STORE, "readonly");
+                var req = tx.objectStore(AccessControl.IDB_STORE).get(key);
+                req.onsuccess = function() {
+                    resolve(req.result ? req.result.value : null);
+                };
+                req.onerror = function() { resolve(null); };
+            });
+        }).catch(function() { return null; });
+    },
+
+    /**
+     * Save credentials to BOTH localStorage and IndexedDB.
+     */
+    _saveCredential: function(key, value) {
+        localStorage.setItem(key, value);
+        return AccessControl._idbSet(key, value);
+    },
+
+    /**
+     * Remove a credential from BOTH stores.
+     */
+    _removeCredential: function(key) {
+        localStorage.removeItem(key);
+        return AccessControl._openCredDB().then(function(db) {
+            if (!db) return;
+            return new Promise(function(resolve) {
+                var tx = db.transaction(AccessControl.IDB_STORE, "readwrite");
+                tx.objectStore(AccessControl.IDB_STORE).delete(key);
+                tx.oncomplete = function() { resolve(); };
+                tx.onerror = function() { resolve(); };
+            });
+        }).catch(function() { /* silent */ });
+    },
+
+    /**
+     * Restore localStorage from IndexedDB if localStorage was cleared.
+     * Returns a promise that resolves when sync is done.
+     * @private
      */
     _restoreFromIDB: function() {
-        return AccessControl._openIDB().then(function(db) {
-            var keys = [AccessControl.TOKEN_KEY, AccessControl.CODE_KEY, AccessControl.NAME_KEY];
-            var promises = keys.map(function(key) {
-                return new Promise(function(resolve) {
-                    var tx = db.transaction(AccessControl.IDB_STORE, "readonly");
-                    var req = tx.objectStore(AccessControl.IDB_STORE).get(key);
-                    req.onsuccess = function() {
-                        if (req.result && !localStorage.getItem(key)) {
-                            localStorage.setItem(key, req.result);
-                            console.log("AccessControl: Restored " + key + " from IndexedDB");
-                        }
-                        resolve();
-                    };
-                    req.onerror = function() { resolve(); };
+        var keys = [AccessControl.TOKEN_KEY, AccessControl.CODE_KEY, AccessControl.NAME_KEY];
+        var anyRestored = false;
+
+        return keys.reduce(function(chain, key) {
+            return chain.then(function() {
+                var lsVal = localStorage.getItem(key);
+                if (lsVal) return; // already have it
+                return AccessControl._idbGet(key).then(function(idbVal) {
+                    if (idbVal) {
+                        localStorage.setItem(key, idbVal);
+                        anyRestored = true;
+                        console.log("AccessControl: Restored " + key + " from IndexedDB");
+                    }
                 });
             });
-            return Promise.all(promises);
-        }).catch(function() {
-            // IndexedDB not available, proceed with localStorage only
-            return Promise.resolve();
+        }, Promise.resolve()).then(function() {
+            if (anyRestored) {
+                console.log("AccessControl: Credentials restored from IndexedDB backup");
+            }
         });
     },
 
@@ -132,7 +184,7 @@ var AccessControl = {
             firebase.initializeApp(FIREBASE_CONFIG);
         }
 
-        // First, restore any credentials from IndexedDB (in case localStorage was wiped)
+        // First, restore any credentials from IndexedDB if localStorage was cleared
         return AccessControl._restoreFromIDB().then(function() {
             // Check if this browser already has a claimed code
             var existingCode = localStorage.getItem(AccessControl.CODE_KEY);
