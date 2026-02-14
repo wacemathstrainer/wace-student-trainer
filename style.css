@@ -1508,6 +1508,22 @@ body.dark-theme #welcome-screen {
     margin-bottom: var(--space-sm);
 }
 
+/* Guided walkthrough: step headers (Step 1, Step 2, etc.) */
+.guided-step-header {
+    display: inline-block;
+    color: var(--accent-primary);
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    margin-top: var(--space-xs);
+}
+
+/* Guided walkthrough: general bold text (answers, key values) */
+.guided-bold {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
 .examiner-comment {
     background: var(--color-info-light);
     border-left: 4px solid var(--color-info);

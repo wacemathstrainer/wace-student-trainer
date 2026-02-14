@@ -5837,7 +5837,7 @@ var StudyUI = {
                 html += '<br>';
             } else {
                 html += '<p class="guided-line">' +
-                    StudyUI._escapeHtml(line) + '</p>';
+                    StudyUI._formatGuidedLine(line) + '</p>';
             }
         });
 
@@ -6071,6 +6071,26 @@ var StudyUI = {
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;");
+    },
+
+    /**
+     * Format a guided-solution line: escape HTML, then convert **bold** markers
+     * to styled <strong> tags. Lines matching "**Step N: ...**" get a special
+     * step-header class for visual emphasis.
+     * @private
+     */
+    _formatGuidedLine: function(text) {
+        if (!text) return "";
+        var escaped = StudyUI._escapeHtml(text);
+        // Convert **text** to <strong>text</strong>
+        // Use a step-header class when the bold text starts with "Step"
+        escaped = escaped.replace(/\*\*([^*]+)\*\*/g, function(match, inner) {
+            if (/^Step\s+\d/.test(inner)) {
+                return '<strong class="guided-step-header">' + inner + '</strong>';
+            }
+            return '<strong class="guided-bold">' + inner + '</strong>';
+        });
+        return escaped;
     },
 
     /**
