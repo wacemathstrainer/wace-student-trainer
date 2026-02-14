@@ -5,7 +5,7 @@
 const TAUGHT_SCHEDULE = {
   "className": "12 Methods Per 2 \u2014 2026",
   "teacherName": "Mr Smith",
-  "createdDate": "2026-02-01",
+  "markEndpoint": "https://australia-southeast1-wace-trainer.cloudfunctions.net/mark",
   "sympyEndpoint": "https://australia-southeast1-wace-trainer.cloudfunctions.net/verify",
   "schedule": [
     {
