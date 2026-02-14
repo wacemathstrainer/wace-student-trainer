@@ -465,23 +465,6 @@ var WrittenMode = {
         }
     },
 
-    toggleRoughWorking: function(partLabel, btn) {
-        var scribbleDiv = document.getElementById("wm-scribble-" + partLabel);
-        if (!scribbleDiv) return;
-        var isHidden = scribbleDiv.classList.toggle("wm-scribble-hidden");
-        if (btn) {
-            btn.classList.toggle("active", !isHidden);
-        }
-        // Initialize the scribble canvas if first time showing
-        if (!isHidden) {
-            var scribbleId = "scribble-" + partLabel;
-            var scribbleCanvas = document.getElementById("wm-canvas-" + scribbleId);
-            if (scribbleCanvas && !WrittenMode.CanvasEngine.canvases[scribbleId]) {
-                WrittenMode.CanvasEngine.init(scribbleId, scribbleCanvas);
-            }
-        }
-    },
-
     checkMarkButton: function() {
         var q = StudyUI.currentQuestion;
         if (!q || !q.parts) return;
@@ -557,13 +540,6 @@ var WrittenMode = {
             '\uD83D\uDDD1 Clear</button>';
         html += '</div>';
 
-        // Rough Working toggle
-        html += '<div class="wm-toolbar-group wm-toolbar-right">';
-        html += '<button class="wm-tool-btn wm-rough-toggle" id="wm-rough-toggle-' + partLabel + '" ' +
-            'onclick="WrittenMode.toggleRoughWorking(\'' + partLabel + '\', this)">' +
-            '\uD83D\uDCDD Rough</button>';
-        html += '</div>';
-
         html += '</div>'; // toolbar
 
         // Canvas ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stacked pair if bgImageUrl is provided
@@ -587,31 +563,33 @@ var WrittenMode = {
         html += '</div>'; // canvas-area
         html += '</div>'; // canvas-main
 
-        // Scribble pad (hidden by default, toggled via Rough Working button)
-        var scribbleId = "scribble-" + partLabel;
-        html += '<div class="wm-canvas-scribble wm-scribble-hidden" id="wm-scribble-' + partLabel + '">';
-        html += '<div class="wm-canvas-area">';
-        html += '<div class="wm-scribble-label">Rough Working</div>';
-        html += '<div class="wm-canvas-toolbar">';
-        html += '<div class="wm-toolbar-group">';
-        html += '<button class="wm-tool-btn active" data-tool="pen" ' +
-            'onclick="WrittenMode.selectTool(\'' + scribbleId + '\', \'pen\', this)">\u270F\uFE0F</button>';
-        html += '<button class="wm-tool-btn" data-tool="eraser" ' +
-            'onclick="WrittenMode.selectTool(\'' + scribbleId + '\', \'eraser\', this)">\u25FB</button>';
-        html += '</div>';
-        html += '<div class="wm-toolbar-group" style="margin-left:auto;">';
-        html += '<button class="wm-tool-btn" onclick="WrittenMode.CanvasEngine.undo(\'' + scribbleId + '\')">\u21A9</button>';
-        html += '<button class="wm-tool-btn" onclick="WrittenMode.confirmClear(\'' + scribbleId + '\')">' +
-            '\uD83D\uDDD1</button>';
-        html += '</div>';
-        html += '</div>';
-        html += '<div class="wm-canvas-wrapper">';
-        html += '<canvas class="wm-drawing-canvas" id="wm-canvas-' + scribbleId +
-            '" height="' + canvasHeight + '" style="height:' + canvasHeight + 'px;"></canvas>';
-        html += '<div class="wm-canvas-placeholder">Scratch pad</div>';
-        html += '</div>';
-        html += '</div>'; // canvas-area
-        html += '</div>'; // canvas-scribble
+        // Scribble pad — hidden for draw-on questions (student draws on the image instead)
+        if (!bgImageUrl) {
+            var scribbleId = "scribble-" + partLabel;
+            html += '<div class="wm-canvas-scribble">';
+            html += '<div class="wm-canvas-area">';
+            html += '<div class="wm-scribble-label">Rough Working</div>';
+            html += '<div class="wm-canvas-toolbar">';
+            html += '<div class="wm-toolbar-group">';
+            html += '<button class="wm-tool-btn active" data-tool="pen" ' +
+                'onclick="WrittenMode.selectTool(\'' + scribbleId + '\', \'pen\', this)">\u270F\uFE0F</button>';
+            html += '<button class="wm-tool-btn" data-tool="eraser" ' +
+                'onclick="WrittenMode.selectTool(\'' + scribbleId + '\', \'eraser\', this)">\u25FB</button>';
+            html += '</div>';
+            html += '<div class="wm-toolbar-group" style="margin-left:auto;">';
+            html += '<button class="wm-tool-btn" onclick="WrittenMode.CanvasEngine.undo(\'' + scribbleId + '\')">\u21A9</button>';
+            html += '<button class="wm-tool-btn" onclick="WrittenMode.confirmClear(\'' + scribbleId + '\')">' +
+                '\uD83D\uDDD1</button>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div class="wm-canvas-wrapper">';
+            html += '<canvas class="wm-drawing-canvas" id="wm-canvas-' + scribbleId +
+                '" height="' + canvasHeight + '" style="height:' + canvasHeight + 'px;"></canvas>';
+            html += '<div class="wm-canvas-placeholder">Scratch pad</div>';
+            html += '</div>';
+            html += '</div>'; // canvas-area
+            html += '</div>'; // canvas-scribble
+        }
 
         html += '</div>'; // canvas-row
         return html;
@@ -637,13 +615,7 @@ var WrittenMode = {
                 }
             }
             var sc = document.getElementById("wm-canvas-scribble-" + part.partLabel);
-            if (sc) {
-                // Only init if scribble panel is visible (not hidden by default)
-                var scribbleDiv = document.getElementById("wm-scribble-" + part.partLabel);
-                if (scribbleDiv && !scribbleDiv.classList.contains("wm-scribble-hidden")) {
-                    WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
-                }
-            }
+            if (sc) WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
         });
     },
 
@@ -663,7 +635,7 @@ var WrittenMode = {
         // Collect reference solution images for draw-on parts (async)
         var refImagePromises = [];
         q.parts.forEach(function(part, idx) {
-            if (StudyUI._isDrawOnPart(part)) {
+            if (StudyUI._isDrawOnPart(part, q)) {
                 var answerDiags = StudyUI._getAnswerDiagrams(q, part.partLabel);
                 if (answerDiags.length > 0) {
                     var imgPath = StudyUI._getDiagramPath(answerDiags[0], q._pool);
@@ -687,7 +659,7 @@ var WrittenMode = {
             var contentBlocks = [];
 
             q.parts.forEach(function(part, idx) {
-                var isDrawOn = StudyUI._isDrawOnPart(part);
+                var isDrawOn = StudyUI._isDrawOnPart(part, q);
                 var partInfo = "Part (" + part.partLabel + ") \u2014 " + part.partMarks + " marks\n" +
                     "Question: " + part.questionText + "\n\n";
 
@@ -872,34 +844,6 @@ var WrittenMode = {
             html += '</div>';
         }
 
-        // Examiner comment and clarification (same as non-stylus mode)
-        if (q.examinerComment) {
-            html += '<div class="examiner-comment">';
-            html += '<div class="examiner-label">' + SYMBOLS.GRADUATION +
-                ' Examiner Comment</div>';
-            html += '<p>' + StudyUI._escapeHtml(q.examinerComment) + '</p>';
-            html += '</div>';
-
-            // Extract clarification from guided solutions
-            var clarification = "";
-            for (var ci = q.parts.length - 1; ci >= 0; ci--) {
-                if (q.parts[ci].guidedSolution) {
-                    var extracted = StudyUI._extractExaminerContent(q.parts[ci].guidedSolution);
-                    if (extracted.clarification) {
-                        clarification = extracted.clarification;
-                        break;
-                    }
-                }
-            }
-            if (clarification) {
-                html += '<div class="examiner-clarification">';
-                html += '<div class="examiner-clarification-label">' +
-                    SYMBOLS.BOOK + ' This comment clarified</div>';
-                html += '<p>' + StudyUI._escapeHtml(clarification) + '</p>';
-                html += '</div>';
-            }
-        }
-
         // SymPy verification summary
         if (sympyData && sympyData.totalChecks > 0) {
             var vClass = sympyData.disagreements > 0 ? "wm-sympy-summary warn" : "wm-sympy-summary ok";
@@ -1053,17 +997,6 @@ var WrittenMode = {
                 html += '</div>';
             }
 
-            // Per-part guided walkthrough toggle (same as non-stylus mode)
-            if (questionPart.guidedSolution) {
-                html += '<div class="guided-part-trigger" id="wm-guided-trigger-' + idx + '">';
-                html += '<button class="btn btn-guided-part" ' +
-                    'onclick="WrittenMode.showPartGuided(' + idx + ')">' +
-                    SYMBOLS.BOOK + ' Show walkthrough</button>';
-                html += '</div>';
-                html += '<div class="solution-part-guided" id="wm-sol-guided-' + idx +
-                    '" style="display:none;"></div>';
-            }
-
             html += '</div>'; // .wm-part-result
         });
 
@@ -1087,74 +1020,6 @@ var WrittenMode = {
     },
 
     // ---- RECORD AI RESULTS INTO EXISTING PIPELINE ----
-
-    /**
-     * Show guided walkthrough for a specific part in written mode results.
-     * Mirrors StudyUI.showPartGuided but uses wm-prefixed IDs.
-     */
-    showPartGuided: function(partIdx) {
-        var q = StudyUI.currentQuestion;
-        if (!q || !q.parts || !q.parts[partIdx]) return;
-
-        var part = q.parts[partIdx];
-        var guidedPanel = document.getElementById("wm-sol-guided-" + partIdx);
-        var trigger = document.getElementById("wm-guided-trigger-" + partIdx);
-
-        if (!guidedPanel || !part.guidedSolution) return;
-
-        // Toggle: if already showing, hide it
-        if (guidedPanel.style.display !== "none") {
-            guidedPanel.style.display = "none";
-            if (trigger) {
-                trigger.querySelector("button").textContent =
-                    SYMBOLS.BOOK + " Show walkthrough";
-            }
-            return;
-        }
-
-        // Record guided access (once per question)
-        if (!StudyUI.guidedAccessedThisQuestion) {
-            StudyUI.guidedAccessedThisQuestion = true;
-            var pts = [];
-            q.parts.forEach(function(p) {
-                if (p.problemType && pts.indexOf(p.problemType) === -1) {
-                    pts.push(p.problemType);
-                }
-            });
-            SessionEngine.recordGuidedAccess(pts);
-        }
-
-        // Extract clean guided text (strip examiner note)
-        var extracted = StudyUI._extractExaminerContent(part.guidedSolution);
-        var cleanText = extracted.cleanGuided || part.guidedSolution;
-
-        var html = '<div class="guided-panel-content">';
-        html += '<h4 class="guided-panel-title">' + SYMBOLS.BOOK +
-            ' Walkthrough \u2014 Part (' + StudyUI._escapeHtml(part.partLabel) + ')</h4>';
-
-        // Split on \\n for line breaks
-        var lines = cleanText.split("\\n");
-        lines.forEach(function(line) {
-            line = line.trim();
-            if (line === "" || line === "---") {
-                html += '<br>';
-            } else {
-                html += '<p class="guided-line">' +
-                    StudyUI._formatGuidedLine(line) + '</p>';
-            }
-        });
-
-        html += '</div>';
-        guidedPanel.innerHTML = html;
-        guidedPanel.style.display = "block";
-
-        if (trigger) {
-            trigger.querySelector("button").textContent =
-                SYMBOLS.BOOK + " Hide walkthrough";
-        }
-
-        UI.renderMath(guidedPanel);
-    },
 
     _recordAIResults: function(result) {
         var q = StudyUI.currentQuestion;

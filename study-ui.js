@@ -259,13 +259,12 @@ var StudyUI = {
     renderQuestion: function(questionInfo) {
         StudyUI.currentFilename = questionInfo.filename;
         StudyUI.currentQuestion = questionInfo.questionData;
-
         StudyUI.partResults = {};
         StudyUI.guidedAccessedThisQuestion = false;
         StudyUI.assessedParts = 0;
         StudyUI._resultsRecorded = false;
-        StudyUI.totalParts = StudyUI.currentQuestion.parts ?
-            StudyUI.currentQuestion.parts.length : 0;
+        StudyUI.totalParts = questionInfo.questionData.parts ?
+            questionInfo.questionData.parts.length : 0;
 
         // Track this question in exam mode (for previous/next navigation)
         if (ExamMode.active && ExamMode.state === "running") {
@@ -317,12 +316,12 @@ var StudyUI = {
         // Question header
         html += '<div class="question-card">';
         html += '<div class="question-header">';
-        // Build rich question reference: e.g. "WACE 2016 CA — Question 9"
+        // Build rich question reference: e.g. "WACE 2016 CA â€” Question 9"
         var refParts = [];
         if (q.sourceName) refParts.push(q.sourceName);
         if (q.year) refParts.push(q.year);
         if (q.sectionName) refParts.push(q.sectionName);
-        var refPrefix = refParts.length > 0 ? refParts.join(' ') + ' — ' : '';
+        var refPrefix = refParts.length > 0 ? refParts.join(' ') + ' â€” ' : '';
         var refText = refPrefix + (q.questionReference || questionInfo.filename || 'Question');
         html += '<h3 class="question-ref">' +
             StudyUI._escapeHtml(refText) + '</h3>';
@@ -364,47 +363,26 @@ var StudyUI = {
         // Parts
         if (q.parts) {
             q.parts.forEach(function(part, idx) {
-                var partClass = 'question-part';
-                if (part._isSubpart) partClass += ' question-subpart';
-
-                html += '<div class="' + partClass + '" data-part-index="' + idx + '">';
-
-                // Show parent stimulus before first subpart
-                if (part._isFirstSubpart && part._parentStimulus) {
-                    html += '<div class="subpart-parent-stimulus">' +
-                        StudyUI._escapeHtml(part._parentStimulus) + '</div>';
-                }
-
+                html += '<div class="question-part" data-part-index="' + idx + '">';
                 html += '<div class="part-header">';
-                var displayLabel = part._displayLabel ||
-                    ('(' + StudyUI._escapeHtml(part.partLabel) + ')');
-                html += '<span class="part-label">' + displayLabel + '</span>';
+                html += '<span class="part-label">(' + StudyUI._escapeHtml(part.partLabel) +
+                    ')</span>';
                 html += '<span class="part-marks">[' + part.partMarks + ' mark' +
                     (part.partMarks !== 1 ? 's' : '') + ']</span>';
                 html += '</div>';
-                var partText = part.questionText || part.stimulus || '';
-                if (partText) {
-                    html += '<div class="part-text">' +
-                        StudyUI._escapeHtml(partText) + '</div>';
-                } else if (!part.marking || part.marking.length === 0) {
-                    html += '<div class="part-text part-text-missing">' +
-                        '<em>Question data not available for this part.</em></div>';
-                }
+                html += '<div class="part-text">' +
+                    StudyUI._escapeHtml(part.questionText) + '</div>';
 
                 // Part-level diagrams (from diagramPlaceholders + diagramsNeeded)
-                // For subparts, show parent diagrams only on the first subpart
-                var diagLabel = part._isSubpart ? part._parentLabel : part.partLabel;
-                var partDiags = [];
-                if (!part._isSubpart || part._isFirstSubpart) {
-                    partDiags = qDiagrams.filter(function(d) {
-                        // Match diagrams referencing this part, e.g. "Parta)_IMG" or "Parta)Stem"
-                        // but exclude stem-only diagrams already shown above
-                        if (d.indexOf("PartStem") !== -1) return false;
-                        if (d.indexOf("_Stem") !== -1 && d.indexOf("Part" + diagLabel) === -1) return false;
-                        return d.indexOf("Part" + diagLabel + ")") !== -1 ||
-                               d.indexOf("Part" + diagLabel + "_") !== -1;
-                    });
-                }
+                var partLabel = part.partLabel;
+                var partDiags = qDiagrams.filter(function(d) {
+                    // Match diagrams referencing this part, e.g. "Parta)_IMG" or "Parta)Stem"
+                    // but exclude stem-only diagrams already shown above
+                    if (d.indexOf("PartStem") !== -1) return false;
+                    if (d.indexOf("_Stem") !== -1 && d.indexOf("Part" + partLabel) === -1) return false;
+                    return d.indexOf("Part" + partLabel + ")") !== -1 ||
+                           d.indexOf("Part" + partLabel + "_") !== -1;
+                });
                 // Also include part.diagramsNeeded.placeholders (rare but exists)
                 var partPlaceholders = (part.diagramsNeeded && part.diagramsNeeded.placeholders) || [];
                 partPlaceholders.forEach(function(p) {
@@ -413,8 +391,8 @@ var StudyUI = {
 
                 // Detect draw-on parts (sketch/graph/table with image background)
                 var isDrawOn = SessionEngine.answerMethod === "stylus" &&
-                    StudyUI._isDrawOnPart(part);
-                var drawOnImage = isDrawOn ? StudyUI._getDrawOnImage(part) : null;
+                    StudyUI._isDrawOnPart(part, q);
+                var drawOnImage = isDrawOn ? StudyUI._getDrawOnImage(part, q) : null;
 
                 // For draw-on parts in stylus mode, suppress the diagram that goes
                 // onto the canvas (it will be loaded as the canvas background instead)
@@ -733,9 +711,9 @@ var StudyUI = {
             // Main content (left side when guided is shown)
             html += '<div class="solution-part-main" id="sol-main-' + partIdx + '">';
 
-            html += '<h4 class="solution-part-header">Part ' +
-                (part._displayLabel || ('(' + StudyUI._escapeHtml(part.partLabel) + ')')) +
-                ' ' + SYMBOLS.BULLET + ' ' + part.partMarks + ' mark' +
+            html += '<h4 class="solution-part-header">Part (' +
+                StudyUI._escapeHtml(part.partLabel) + ') ' +
+                SYMBOLS.BULLET + ' ' + part.partMarks + ' mark' +
                 (part.partMarks !== 1 ? 's' : '') + '</h4>';
 
             // Numbered solution lines
@@ -1738,13 +1716,17 @@ var StudyUI = {
      * contains an [IMAGE:] reference for the background (axes, table, etc.).
      * @private
      */
-    _isDrawOnPart: function(part) {
-        if (!part) return false;
-        var text = part.questionText || part.stimulus || '';
-        if (!text) return false;
-        return /sketch|draw|on the axes|on the graph|shade|complete the table|fill in.*table|complete the following table/i
-            .test(text) &&
-            /\[IMAGE:\s*[^\]]+\]/.test(text);
+    _isDrawOnPart: function(part, q) {
+        if (!part || !part.questionText) return false;
+        var hasKeyword = /sketch|draw|on the axes|on the graph|shade|complete the table|fill in.*table|complete the following table/i
+            .test(part.questionText);
+        if (!hasKeyword) return false;
+        // Check for [IMAGE:] embedded in questionText
+        if (/\[IMAGE:\s*[^\]]+\]/.test(part.questionText)) return true;
+        // Fallback: check diagramPlaceholders.question for images (e.g. table questions)
+        if (q && q.diagramPlaceholders && q.diagramPlaceholders.question &&
+            q.diagramPlaceholders.question.length > 0) return true;
+        return false;
     },
 
     /**
@@ -1752,12 +1734,34 @@ var StudyUI = {
      * background (e.g. blank axes or empty table).
      * @private
      */
-    _getDrawOnImage: function(part) {
-        if (!part) return null;
-        var text = part.questionText || part.stimulus || '';
-        if (!text) return null;
-        var match = text.match(/\[IMAGE:\s*([^\]]+)\]/);
-        return match ? match[1].trim() : null;
+    _getDrawOnImage: function(part, q) {
+        if (!part || !part.questionText) return null;
+        // First try: [IMAGE:] embedded in questionText
+        var match = part.questionText.match(/\[IMAGE:\s*([^\]]+)\]/);
+        if (match) return match[1].trim();
+        // Fallback: find a matching image in diagramPlaceholders.question
+        if (q && q.diagramPlaceholders && q.diagramPlaceholders.question) {
+            var partLabel = part.partLabel || '';
+            var imgs = q.diagramPlaceholders.question;
+            // Try part-specific image first
+            for (var i = 0; i < imgs.length; i++) {
+                var fname = imgs[i].replace(/\[IMAGE:\s*|\]/g, '').trim();
+                if (fname.indexOf("Part" + partLabel + ")") !== -1 ||
+                    fname.indexOf("Part" + partLabel + "_") !== -1) {
+                    return fname;
+                }
+            }
+            // Fall back to PartStem image
+            for (var j = 0; j < imgs.length; j++) {
+                var fname2 = imgs[j].replace(/\[IMAGE:\s*|\]/g, '').trim();
+                if (fname2.indexOf("PartStem") !== -1) return fname2;
+            }
+            // Last resort: first available question image
+            if (imgs.length > 0) {
+                return imgs[0].replace(/\[IMAGE:\s*|\]/g, '').trim();
+            }
+        }
+        return null;
     },
 
     /**
