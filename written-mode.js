@@ -872,6 +872,34 @@ var WrittenMode = {
             html += '</div>';
         }
 
+        // Examiner comment and clarification (same as non-stylus mode)
+        if (q.examinerComment) {
+            html += '<div class="examiner-comment">';
+            html += '<div class="examiner-label">' + SYMBOLS.GRADUATION +
+                ' Examiner Comment</div>';
+            html += '<p>' + StudyUI._escapeHtml(q.examinerComment) + '</p>';
+            html += '</div>';
+
+            // Extract clarification from guided solutions
+            var clarification = "";
+            for (var ci = q.parts.length - 1; ci >= 0; ci--) {
+                if (q.parts[ci].guidedSolution) {
+                    var extracted = StudyUI._extractExaminerContent(q.parts[ci].guidedSolution);
+                    if (extracted.clarification) {
+                        clarification = extracted.clarification;
+                        break;
+                    }
+                }
+            }
+            if (clarification) {
+                html += '<div class="examiner-clarification">';
+                html += '<div class="examiner-clarification-label">' +
+                    SYMBOLS.BOOK + ' This comment clarified</div>';
+                html += '<p>' + StudyUI._escapeHtml(clarification) + '</p>';
+                html += '</div>';
+            }
+        }
+
         // SymPy verification summary
         if (sympyData && sympyData.totalChecks > 0) {
             var vClass = sympyData.disagreements > 0 ? "wm-sympy-summary warn" : "wm-sympy-summary ok";
@@ -1025,6 +1053,17 @@ var WrittenMode = {
                 html += '</div>';
             }
 
+            // Per-part guided walkthrough toggle (same as non-stylus mode)
+            if (questionPart.guidedSolution) {
+                html += '<div class="guided-part-trigger" id="wm-guided-trigger-' + idx + '">';
+                html += '<button class="btn btn-guided-part" ' +
+                    'onclick="WrittenMode.showPartGuided(' + idx + ')">' +
+                    SYMBOLS.BOOK + ' Show walkthrough</button>';
+                html += '</div>';
+                html += '<div class="solution-part-guided" id="wm-sol-guided-' + idx +
+                    '" style="display:none;"></div>';
+            }
+
             html += '</div>'; // .wm-part-result
         });
 
@@ -1048,6 +1087,74 @@ var WrittenMode = {
     },
 
     // ---- RECORD AI RESULTS INTO EXISTING PIPELINE ----
+
+    /**
+     * Show guided walkthrough for a specific part in written mode results.
+     * Mirrors StudyUI.showPartGuided but uses wm-prefixed IDs.
+     */
+    showPartGuided: function(partIdx) {
+        var q = StudyUI.currentQuestion;
+        if (!q || !q.parts || !q.parts[partIdx]) return;
+
+        var part = q.parts[partIdx];
+        var guidedPanel = document.getElementById("wm-sol-guided-" + partIdx);
+        var trigger = document.getElementById("wm-guided-trigger-" + partIdx);
+
+        if (!guidedPanel || !part.guidedSolution) return;
+
+        // Toggle: if already showing, hide it
+        if (guidedPanel.style.display !== "none") {
+            guidedPanel.style.display = "none";
+            if (trigger) {
+                trigger.querySelector("button").textContent =
+                    SYMBOLS.BOOK + " Show walkthrough";
+            }
+            return;
+        }
+
+        // Record guided access (once per question)
+        if (!StudyUI.guidedAccessedThisQuestion) {
+            StudyUI.guidedAccessedThisQuestion = true;
+            var pts = [];
+            q.parts.forEach(function(p) {
+                if (p.problemType && pts.indexOf(p.problemType) === -1) {
+                    pts.push(p.problemType);
+                }
+            });
+            SessionEngine.recordGuidedAccess(pts);
+        }
+
+        // Extract clean guided text (strip examiner note)
+        var extracted = StudyUI._extractExaminerContent(part.guidedSolution);
+        var cleanText = extracted.cleanGuided || part.guidedSolution;
+
+        var html = '<div class="guided-panel-content">';
+        html += '<h4 class="guided-panel-title">' + SYMBOLS.BOOK +
+            ' Walkthrough \u2014 Part (' + StudyUI._escapeHtml(part.partLabel) + ')</h4>';
+
+        // Split on \\n for line breaks
+        var lines = cleanText.split("\\n");
+        lines.forEach(function(line) {
+            line = line.trim();
+            if (line === "" || line === "---") {
+                html += '<br>';
+            } else {
+                html += '<p class="guided-line">' +
+                    StudyUI._formatGuidedLine(line) + '</p>';
+            }
+        });
+
+        html += '</div>';
+        guidedPanel.innerHTML = html;
+        guidedPanel.style.display = "block";
+
+        if (trigger) {
+            trigger.querySelector("button").textContent =
+                SYMBOLS.BOOK + " Hide walkthrough";
+        }
+
+        UI.renderMath(guidedPanel);
+    },
 
     _recordAIResults: function(result) {
         var q = StudyUI.currentQuestion;
