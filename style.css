@@ -1144,6 +1144,64 @@ body.dark-theme #welcome-screen {
     color: white;
 }
 
+/* Toggleable marking criteria (paper mode self-assessment) */
+.marking-toggleable .marking-row.mark-toggle {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.marking-toggleable .marking-row.mark-toggle:hover {
+    filter: brightness(0.96);
+}
+
+.marking-row.mark-not-met {
+    background: var(--color-danger-light);
+}
+
+.marking-row.mark-not-met .mark-awarded {
+    background: var(--color-danger);
+    color: white;
+}
+
+.marking-row.mark-not-met .mark-awarded::after {
+    content: "\2717";
+    position: absolute;
+}
+
+.marking-row.mark-met {
+    background: var(--color-success-light);
+}
+
+.marking-row.mark-met .mark-awarded {
+    background: var(--color-success);
+    color: white;
+}
+
+.marking-row.mark-met .mark-awarded::after {
+    content: "\2713";
+    position: absolute;
+}
+
+.marking-row.mark-toggle .mark-awarded {
+    position: relative;
+    font-size: 0;
+}
+
+.criteria-confirm-area {
+    margin: var(--space-md) 0;
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+.criteria-confirm-hint {
+    margin-bottom: var(--space-sm);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
 
 /* ---- SELF ASSESSMENT ---- */
 .self-assess {
@@ -4151,23 +4209,6 @@ body.dark-theme input[type="range"] {
 .exam-mark-log-item.done { color: var(--success, #2E7D32); }
 .exam-mark-log-item.error { color: var(--danger, #C62828); }
 .exam-mark-log-item.skipped { color: var(--text-secondary); }
-
-.exam-api-error-banner {
-    background: color-mix(in srgb, var(--wrong-red, #C62828) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--wrong-red, #C62828) 30%, transparent);
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-top: 12px;
-    font-size: 0.92em;
-    line-height: 1.5;
-    color: var(--text-primary);
-}
-
-.exam-marking-error-detail {
-    padding: 8px 0;
-    font-size: 0.92em;
-    line-height: 1.5;
-}
 
 /* ---- Exam Results Screen ---- */
 
