@@ -35,8 +35,7 @@ var SYMBOLS = {
     SUN:          "\u2600",     // sun (for dark mode toggle)
     MOON:         "\u263E",     // moon (for light mode toggle)
     ARROW_UP:     "\u2191",     // up arrow (improving)
-    REVIEW:       "\u21BB",     // clockwise loop (review due)
-    CLIPBOARD:    "\uD83D\uDCCB"  // clipboard (exam review)
+    REVIEW:       "\u21BB"      // clockwise loop (review due)
 };
 
 // ---- APP CONSTANTS ----
@@ -282,11 +281,9 @@ var QuestionEngine = {
         var today = new Date();
         today.setHours(0, 0, 0, 0);
         var unlocked = {};
-        var hasSchedule = false;
 
         // Base schedule from schedule.js
         if (typeof TAUGHT_SCHEDULE !== "undefined" && TAUGHT_SCHEDULE.schedule) {
-            hasSchedule = true;
             TAUGHT_SCHEDULE.schedule.forEach(function(entry) {
                 var entryDate = new Date(entry.date + "T00:00:00");
                 if (aheadOfSchedule || entryDate <= today) {
@@ -299,7 +296,6 @@ var QuestionEngine = {
 
         // Imported schedule updates from IndexedDB
         if (scheduleUpdates && scheduleUpdates.length > 0) {
-            hasSchedule = true;
             scheduleUpdates.forEach(function(entry) {
                 var entryDate = new Date(entry.date + "T00:00:00");
                 if (aheadOfSchedule || entryDate <= today) {
@@ -307,16 +303,6 @@ var QuestionEngine = {
                         unlocked[pt] = true;
                     });
                 }
-            });
-        }
-
-        // FALLBACK: If no schedule found at all, unlock ALL problem types
-        // from the taxonomy so the app is still usable
-        if (!hasSchedule || Object.keys(unlocked).length === 0) {
-            console.warn("QuestionEngine: No schedule loaded or no PTs released yet. " +
-                "Unlocking ALL taxonomy problem types as fallback.");
-            QuestionEngine.allProblemTypes.forEach(function(pt) {
-                unlocked[pt] = true;
             });
         }
 
@@ -1054,17 +1040,9 @@ var SessionEngine = {
     topicFilter: null,
     sectionFilter: "mix",     // "CA", "CF", or "mix"
     wrongListOnly: false,     // true = only serve wrong list questions
+    answerMethod: "paper",    // "paper" or "stylus"
     sessionGoal: 10,
     startTime: null,
-
-    // Exam mode state
-    examMode: false,          // true = exam mode (no solutions until review)
-    examQueue: [],            // pre-selected questions [{filename, questionData, targetProblemType}]
-    examQueueIndex: 0,        // current position in exam queue
-    examAnswers: [],          // stored question data for review [{filename, questionData, targetProblemType}]
-
-    // Answer method
-    answerMethod: "paper",    // "paper" or "stylus"
 
     // Categorised problem type lists
     wrongList: [],
@@ -1101,6 +1079,7 @@ var SessionEngine = {
         SessionEngine.sessionGoal = opts.goal || 10;
         SessionEngine.sectionFilter = opts.sectionFilter || "mix";
         SessionEngine.wrongListOnly = !!opts.wrongListOnly;
+        SessionEngine.answerMethod = opts.answerMethod || "paper";
         SessionEngine.startTime = new Date();
         SessionEngine.freshCount = 0;
         SessionEngine.totalCount = 0;
@@ -1108,15 +1087,6 @@ var SessionEngine = {
         SessionEngine.currentQuestion = null;
         SessionEngine.currentFilename = null;
         SessionEngine.newMasteries = [];
-
-        // Reset exam mode state
-        SessionEngine.examMode = !!opts.examMode;
-        SessionEngine.examQueue = [];
-        SessionEngine.examQueueIndex = 0;
-        SessionEngine.examAnswers = [];
-
-        // Answer method
-        SessionEngine.answerMethod = opts.answerMethod || "paper";
 
         // Set section filter on QuestionSelector
         QuestionSelector.sectionFilter = SessionEngine.sectionFilter;
@@ -1132,7 +1102,6 @@ var SessionEngine = {
             sectionFilter: SessionEngine.sectionFilter,
             wrongListOnly: SessionEngine.wrongListOnly,
             answerMethod: SessionEngine.answerMethod,
-            examMode: SessionEngine.examMode,
             questionsAttempted: 0,
             partsAttempted: 0,
             partsCorrect: 0,
@@ -1538,6 +1507,1043 @@ function mapErrorToCriteria(errorLine, totalLines, totalCriteria) {
 
 
 // ============================================================================
+// WRITTEN MODE MODULE
+// Canvas engine, AI marking via Claude API, results display, notation popup.
+// Only active when SessionEngine.answerMethod === "stylus".
+// ============================================================================
+var WrittenMode = {
+
+    // ---- API KEY MANAGEMENT ----
+
+    getApiKey: function() {
+        try { return localStorage.getItem("wm_api_key") || ""; }
+        catch(e) { return ""; }
+    },
+
+    setApiKey: function(key) {
+        try { localStorage.setItem("wm_api_key", key); }
+        catch(e) { /* ignore */ }
+    },
+
+    // ---- CANVAS ENGINE ----
+
+    CanvasEngine: {
+        canvases: {},
+
+        init: function(partLabel, canvasEl) {
+            var dpr = window.devicePixelRatio || 1;
+            var rect = canvasEl.getBoundingClientRect();
+            canvasEl.width = rect.width * dpr;
+            canvasEl.height = rect.height * dpr;
+
+            var ctx = canvasEl.getContext("2d");
+            ctx.scale(dpr, dpr);
+
+            var state = {
+                canvas: canvasEl,
+                ctx: ctx,
+                dpr: dpr,
+                drawing: false,
+                tool: "pen",
+                color: "#000000",
+                lineWidth: 3,
+                points: [],
+                undoStack: [],
+                hasContent: false
+            };
+
+            this.canvases[partLabel] = state;
+
+            var self = this;
+            canvasEl.addEventListener("pointerdown", function(e) {
+                self.onPointerDown(partLabel, e);
+            });
+            canvasEl.addEventListener("pointermove", function(e) {
+                self.onPointerMove(partLabel, e);
+            });
+            canvasEl.addEventListener("pointerup", function(e) {
+                self.onPointerUp(partLabel, e);
+            });
+            canvasEl.addEventListener("pointerleave", function(e) {
+                self.onPointerUp(partLabel, e);
+            });
+
+            canvasEl.style.touchAction = "none";
+            return state;
+        },
+
+        getPos: function(canvas, e) {
+            var rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure || 0.5 };
+        },
+
+        saveState: function(partLabel) {
+            var s = this.canvases[partLabel];
+            if (!s) return;
+            if (s.undoStack.length > 30) s.undoStack.shift();
+            s.undoStack.push(s.canvas.toDataURL());
+        },
+
+        onPointerDown: function(partLabel, e) {
+            var s = this.canvases[partLabel];
+            if (!s) return;
+            e.preventDefault();
+            this.saveState(partLabel);
+            s.drawing = true;
+            s.points = [];
+            var pos = this.getPos(s.canvas, e);
+            s.points.push(pos);
+            s.ctx.beginPath();
+            s.ctx.moveTo(pos.x, pos.y);
+
+            var ph = s.canvas.parentElement.querySelector(".wm-canvas-placeholder");
+            if (ph) ph.style.display = "none";
+        },
+
+        onPointerMove: function(partLabel, e) {
+            var s = this.canvases[partLabel];
+            if (!s || !s.drawing) return;
+            e.preventDefault();
+
+            var events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+            for (var i = 0; i < events.length; i++) {
+                var pos = this.getPos(s.canvas, events[i]);
+                s.points.push(pos);
+                this.drawStroke(s, pos);
+            }
+        },
+
+        onPointerUp: function(partLabel, e) {
+            var s = this.canvases[partLabel];
+            if (!s || !s.drawing) return;
+            s.drawing = false;
+            s.ctx.closePath();
+            s.hasContent = true;
+            WrittenMode.checkMarkButton();
+        },
+
+        drawStroke: function(s, pos) {
+            var pressure = pos.pressure || 0.5;
+            var width = s.lineWidth * (0.5 + pressure);
+
+            if (s.tool === "eraser") {
+                s.ctx.globalCompositeOperation = "destination-out";
+                width = s.lineWidth * 3;
+            } else {
+                s.ctx.globalCompositeOperation = "source-over";
+            }
+
+            s.ctx.lineWidth = width;
+            s.ctx.lineCap = "round";
+            s.ctx.lineJoin = "round";
+            s.ctx.strokeStyle = s.color;
+            s.ctx.lineTo(pos.x, pos.y);
+            s.ctx.stroke();
+            s.ctx.beginPath();
+            s.ctx.moveTo(pos.x, pos.y);
+        },
+
+        setTool: function(partLabel, tool) {
+            var s = this.canvases[partLabel];
+            if (s) s.tool = tool;
+        },
+
+        setColor: function(partLabel, color) {
+            var s = this.canvases[partLabel];
+            if (s) {
+                s.color = color;
+                s.tool = "pen";
+            }
+        },
+
+        setWidth: function(partLabel, width) {
+            var s = this.canvases[partLabel];
+            if (s) s.lineWidth = width;
+        },
+
+        undo: function(partLabel) {
+            var s = this.canvases[partLabel];
+            if (!s || s.undoStack.length === 0) return;
+            var prev = s.undoStack.pop();
+            var img = new Image();
+            img.onload = function() {
+                s.ctx.globalCompositeOperation = "source-over";
+                s.ctx.clearRect(0, 0, s.canvas.width / s.dpr, s.canvas.height / s.dpr);
+                s.ctx.drawImage(img, 0, 0, s.canvas.width / s.dpr, s.canvas.height / s.dpr);
+            };
+            img.src = prev;
+        },
+
+        clear: function(partLabel) {
+            var s = this.canvases[partLabel];
+            if (!s) return;
+            this.saveState(partLabel);
+            s.ctx.globalCompositeOperation = "source-over";
+            s.ctx.clearRect(0, 0, s.canvas.width / s.dpr, s.canvas.height / s.dpr);
+            s.hasContent = false;
+            var ph = s.canvas.parentElement.querySelector(".wm-canvas-placeholder");
+            if (ph) ph.style.display = "block";
+            WrittenMode.checkMarkButton();
+        },
+
+        exportPNG: function(partLabel) {
+            var s = this.canvases[partLabel];
+            if (!s) return null;
+            var maxWidth = 1568;
+            if (s.canvas.width <= maxWidth) {
+                return s.canvas.toDataURL("image/png");
+            }
+            var scale = maxWidth / s.canvas.width;
+            var temp = document.createElement("canvas");
+            temp.width = maxWidth;
+            temp.height = s.canvas.height * scale;
+            var tCtx = temp.getContext("2d");
+            tCtx.drawImage(s.canvas, 0, 0, temp.width, temp.height);
+            return temp.toDataURL("image/png");
+        }
+    },
+
+    // ---- QUESTION TIMER ----
+
+    QuestionTimer: {
+        interval: null,
+        startTime: null,
+        allowedSeconds: 0,
+        elapsed: 0,
+
+        start: function(question) {
+            this.stop();
+            var hasContext = question.questionStimulus && question.questionStimulus.length > 0;
+            this.allowedSeconds = hasContext
+                ? (25 + (question.totalMarks || 5) * 50)
+                : (20 + (question.totalMarks || 5) * 35);
+            this.startTime = Date.now();
+            this.elapsed = 0;
+
+            var timerEl = document.getElementById("wm-timer");
+            var displayEl = document.getElementById("wm-timer-display");
+            if (timerEl) {
+                timerEl.classList.remove("wm-hidden", "wm-timer-warning", "wm-timer-overtime");
+            }
+            if (displayEl) {
+                displayEl.textContent = this.formatTime(this.allowedSeconds);
+            }
+
+            var self = this;
+            this.interval = setInterval(function() {
+                self.elapsed = Math.floor((Date.now() - self.startTime) / 1000);
+                var remaining = self.allowedSeconds - self.elapsed;
+
+                if (!displayEl || !timerEl) return;
+
+                if (remaining > 0) {
+                    displayEl.textContent = self.formatTime(remaining);
+                    timerEl.classList.remove("wm-timer-overtime", "wm-timer-warning");
+                    if (remaining <= 60) timerEl.classList.add("wm-timer-warning");
+                } else {
+                    displayEl.textContent = "+" + self.formatTime(-remaining);
+                    timerEl.classList.remove("wm-timer-warning");
+                    timerEl.classList.add("wm-timer-overtime");
+                }
+            }, 1000);
+        },
+
+        stop: function() {
+            if (this.interval) {
+                clearInterval(this.interval);
+                this.interval = null;
+            }
+        },
+
+        formatTime: function(seconds) {
+            var abs = Math.abs(Math.floor(seconds));
+            var m = Math.floor(abs / 60);
+            var s = abs % 60;
+            return m + ":" + (s < 10 ? "0" : "") + s;
+        }
+    },
+
+    // ---- CANVAS UI HELPERS ----
+
+    selectTool: function(partLabel, tool, btn) {
+        WrittenMode.CanvasEngine.setTool(partLabel, tool);
+        var toolbar = btn.closest(".wm-canvas-toolbar");
+        toolbar.querySelectorAll("[data-tool]").forEach(function(b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+    },
+
+    selectColor: function(partLabel, color, dot) {
+        WrittenMode.CanvasEngine.setColor(partLabel, color);
+        var toolbar = dot.closest(".wm-canvas-toolbar");
+        toolbar.querySelectorAll(".wm-color-dot").forEach(function(d) { d.classList.remove("active"); });
+        dot.classList.add("active");
+        toolbar.querySelectorAll("[data-tool]").forEach(function(b) { b.classList.remove("active"); });
+        toolbar.querySelector('[data-tool="pen"]').classList.add("active");
+    },
+
+    selectWidth: function(partLabel, width, btn) {
+        WrittenMode.CanvasEngine.setWidth(partLabel, width);
+        var toolbar = btn.closest(".wm-canvas-toolbar");
+        toolbar.querySelectorAll(".wm-width-btn").forEach(function(b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+    },
+
+    confirmClear: function(partLabel) {
+        if (confirm("Clear your working for this part?")) {
+            WrittenMode.CanvasEngine.clear(partLabel);
+        }
+    },
+
+    checkMarkButton: function() {
+        var q = StudyUI.currentQuestion;
+        if (!q || !q.parts) return;
+        var partsWithContent = 0;
+        var totalParts = q.parts.length;
+        q.parts.forEach(function(p) {
+            var s = WrittenMode.CanvasEngine.canvases[p.partLabel];
+            if (s && s.hasContent) partsWithContent++;
+        });
+        var allHaveContent = partsWithContent === totalParts;
+        var markBtn = document.getElementById("wm-mark-btn");
+        var markHint = document.getElementById("wm-mark-hint");
+        if (markBtn) markBtn.disabled = !allHaveContent;
+        if (markHint) {
+            if (allHaveContent) {
+                markHint.textContent = "Ready to mark!";
+            } else if (partsWithContent > 0) {
+                markHint.textContent = partsWithContent + " of " + totalParts + " parts answered";
+            }
+        }
+    },
+
+    // ---- RENDER CANVAS ROW HTML ----
+
+    renderCanvasRow: function(partLabel) {
+        var html = '<div class="wm-canvas-row">';
+
+        // Main answer canvas
+        html += '<div class="wm-canvas-main">';
+        html += '<div class="wm-canvas-area" data-part="' + partLabel + '">';
+
+        // Toolbar
+        html += '<div class="wm-canvas-toolbar">';
+        html += '<div class="wm-toolbar-group">';
+        html += '<button class="wm-tool-btn active" data-tool="pen" ' +
+            'onclick="WrittenMode.selectTool(\'' + partLabel + '\', \'pen\', this)">\u270F\uFE0F Pen</button>';
+        html += '<button class="wm-tool-btn" data-tool="eraser" ' +
+            'onclick="WrittenMode.selectTool(\'' + partLabel + '\', \'eraser\', this)">\u25FB Eraser</button>';
+        html += '</div>';
+        html += '<div class="wm-toolbar-sep"></div>';
+
+        // Colors
+        html += '<div class="wm-toolbar-group">';
+        html += '<div class="wm-color-dot active" style="background:#000" ' +
+            'onclick="WrittenMode.selectColor(\'' + partLabel + '\', \'#000000\', this)"></div>';
+        html += '<div class="wm-color-dot" style="background:#1565C0" ' +
+            'onclick="WrittenMode.selectColor(\'' + partLabel + '\', \'#1565C0\', this)"></div>';
+        html += '<div class="wm-color-dot" style="background:#C62828" ' +
+            'onclick="WrittenMode.selectColor(\'' + partLabel + '\', \'#C62828\', this)"></div>';
+        html += '</div>';
+        html += '<div class="wm-toolbar-sep"></div>';
+
+        // Widths
+        html += '<div class="wm-toolbar-group">';
+        html += '<button class="wm-width-btn" onclick="WrittenMode.selectWidth(\'' + partLabel + '\', 1.5, this)">' +
+            '<div class="wm-width-indicator" style="width:4px;height:4px;"></div></button>';
+        html += '<button class="wm-width-btn active" onclick="WrittenMode.selectWidth(\'' + partLabel + '\', 3, this)">' +
+            '<div class="wm-width-indicator" style="width:6px;height:6px;"></div></button>';
+        html += '<button class="wm-width-btn" onclick="WrittenMode.selectWidth(\'' + partLabel + '\', 5, this)">' +
+            '<div class="wm-width-indicator" style="width:9px;height:9px;"></div></button>';
+        html += '</div>';
+        html += '<div class="wm-toolbar-sep"></div>';
+
+        // Undo / Clear
+        html += '<div class="wm-toolbar-group">';
+        html += '<button class="wm-tool-btn" onclick="WrittenMode.CanvasEngine.undo(\'' + partLabel + '\')">\u21A9 Undo</button>';
+        html += '<button class="wm-tool-btn" onclick="WrittenMode.confirmClear(\'' + partLabel + '\')">' +
+            '\uD83D\uDDD1 Clear</button>';
+        html += '</div>';
+
+        html += '</div>'; // toolbar
+
+        // Canvas
+        html += '<div class="wm-canvas-wrapper">';
+        html += '<canvas class="wm-drawing-canvas" id="wm-canvas-' + partLabel +
+            '" height="300" style="height:300px;"></canvas>';
+        html += '<div class="wm-canvas-placeholder">Write your answer here</div>';
+        html += '</div>';
+
+        html += '</div>'; // canvas-area
+        html += '</div>'; // canvas-main
+
+        // Scribble pad
+        var scribbleId = "scribble-" + partLabel;
+        html += '<div class="wm-canvas-scribble">';
+        html += '<div class="wm-canvas-area">';
+        html += '<div class="wm-scribble-label">Rough Working</div>';
+        html += '<div class="wm-canvas-toolbar">';
+        html += '<div class="wm-toolbar-group">';
+        html += '<button class="wm-tool-btn active" data-tool="pen" ' +
+            'onclick="WrittenMode.selectTool(\'' + scribbleId + '\', \'pen\', this)">\u270F\uFE0F</button>';
+        html += '<button class="wm-tool-btn" data-tool="eraser" ' +
+            'onclick="WrittenMode.selectTool(\'' + scribbleId + '\', \'eraser\', this)">\u25FB</button>';
+        html += '</div>';
+        html += '<div class="wm-toolbar-group" style="margin-left:auto;">';
+        html += '<button class="wm-tool-btn" onclick="WrittenMode.CanvasEngine.undo(\'' + scribbleId + '\')">\u21A9</button>';
+        html += '<button class="wm-tool-btn" onclick="WrittenMode.confirmClear(\'' + scribbleId + '\')">' +
+            '\uD83D\uDDD1</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="wm-canvas-wrapper">';
+        html += '<canvas class="wm-drawing-canvas" id="wm-canvas-' + scribbleId +
+            '" height="300" style="height:300px;"></canvas>';
+        html += '<div class="wm-canvas-placeholder">Scratch pad</div>';
+        html += '</div>';
+        html += '</div>'; // canvas-area
+        html += '</div>'; // canvas-scribble
+
+        html += '</div>'; // canvas-row
+        return html;
+    },
+
+    // ---- INIT CANVASES FOR QUESTION ----
+
+    initCanvasesForQuestion: function(q) {
+        WrittenMode.CanvasEngine.canvases = {};
+        if (!q.parts) return;
+        q.parts.forEach(function(part) {
+            var c = document.getElementById("wm-canvas-" + part.partLabel);
+            if (c) WrittenMode.CanvasEngine.init(part.partLabel, c);
+            var sc = document.getElementById("wm-canvas-scribble-" + part.partLabel);
+            if (sc) WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
+        });
+    },
+
+    // ---- AI MARKING ----
+
+    markAnswer: function() {
+        var q = StudyUI.currentQuestion;
+        var apiKey = WrittenMode.getApiKey();
+        if (!apiKey || !q) return;
+
+        WrittenMode.QuestionTimer.stop();
+
+        var overlay = document.getElementById("wm-marking-overlay");
+        if (overlay) overlay.classList.remove("wm-hidden");
+
+        var contentBlocks = [];
+        var systemPrompt = WrittenMode.buildSystemPrompt();
+
+        q.parts.forEach(function(part, idx) {
+            var partInfo = "Part (" + part.partLabel + ") \u2014 " + part.partMarks + " marks\n" +
+                "Question: " + part.questionText + "\n\n" +
+                "Marking criteria:\n";
+
+            if (part.marking) {
+                part.marking.forEach(function(m, mi) {
+                    var line = (mi + 1) + ". " + m.text + " [" + m.awarded + " mark(s)]";
+                    if (m.type) line += " {type:" + m.type + "}";
+                    if (m.deps && m.deps.length) line += " {deps:" + m.deps.join(",") + "}";
+                    if (m.cao) line += " {CAO}";
+                    if (m.isw) line += " {ISW}";
+                    if (m.ft === false) line += " {no-FT}";
+                    if (m.accuracy) line += " {accuracy:" + JSON.stringify(m.accuracy) + "}";
+                    partInfo += line + "\n";
+                });
+            }
+
+            if (part.originalSolution) {
+                partInfo += "\nWorked solution for reference:\n";
+                part.originalSolution.forEach(function(sol, si) {
+                    partInfo += (si + 1) + ". " + sol.text + "\n";
+                });
+            }
+
+            partInfo += "\nBelow is the student's handwritten answer for this part:";
+            contentBlocks.push({ type: "text", text: partInfo });
+
+            var dataUrl = WrittenMode.CanvasEngine.exportPNG(part.partLabel);
+            if (dataUrl) {
+                var base64 = dataUrl.split(",")[1];
+                contentBlocks.push({
+                    type: "image",
+                    source: { type: "base64", media_type: "image/png", data: base64 }
+                });
+            }
+        });
+
+        contentBlocks.push({
+            type: "text",
+            text: "Mark all parts. IMPORTANT: First read ALL parts' handwriting to understand what the student wrote. " +
+                  "Then mark each part. For multi-part questions, apply FOLLOW-THROUGH MARKING: if the student got an earlier part wrong " +
+                  "but correctly used their wrong answer in later parts, award ALL marks in those later parts. " +
+                  "The error is penalised ONLY in the part where it occurred \u2014 do not penalise it again in later parts. " +
+                  "Respond with JSON only."
+        });
+
+        fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "anthropic-dangerous-direct-browser-access": "true"
+            },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 2000,
+                system: systemPrompt,
+                messages: [{ role: "user", content: contentBlocks }]
+            })
+        })
+        .then(function(resp) {
+            if (!resp.ok) {
+                return resp.json().then(function(data) {
+                    throw new Error(data.error ? data.error.message : "API error " + resp.status);
+                });
+            }
+            return resp.json();
+        })
+        .then(function(data) {
+            if (overlay) overlay.classList.add("wm-hidden");
+
+            var text = "";
+            if (data.content) {
+                data.content.forEach(function(block) {
+                    if (block.type === "text") text += block.text;
+                });
+            }
+
+            var cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+            var result = JSON.parse(cleaned);
+            WrittenMode.displayResults(result);
+        })
+        .catch(function(err) {
+            if (overlay) overlay.classList.add("wm-hidden");
+
+            // Offer fallback to paper self-assessment
+            var msg = "Marking failed: " + err.message +
+                "\n\nWould you like to self-assess this question instead?";
+            if (confirm(msg)) {
+                // Switch to paper mode for this question only
+                StudyUI.showSolution();
+            }
+            console.error("WrittenMode marking error:", err);
+        });
+    },
+
+    // ---- DISPLAY RESULTS ----
+
+    displayResults: function(result) {
+        var q = StudyUI.currentQuestion;
+        if (!q) return;
+
+        // Hide mark bar
+        var markArea = document.getElementById("wm-mark-area");
+        if (markArea) markArea.classList.add("wm-hidden");
+
+        // Store result for overrides
+        window._wmMarkingResult = result;
+
+        var container = document.getElementById("wm-results-container");
+        if (!container) return;
+        container.classList.remove("wm-hidden");
+
+        // Calculate total score
+        var totalEarned = 0;
+        var totalAvailable = 0;
+        result.parts.forEach(function(p) {
+            totalEarned += p.totalAwarded;
+            totalAvailable += p.totalAvailable;
+        });
+
+        var allCorrect = totalEarned === totalAvailable;
+        var html = "";
+
+        // Header
+        html += '<div class="wm-results-header">';
+        html += '<div class="wm-results-title">Marking Results</div>';
+        html += '<div class="wm-results-score"><span class="wm-earned">' + totalEarned +
+            '</span><span class="wm-total"> / ' + totalAvailable + ' marks</span></div>';
+        html += '</div>';
+
+        if (allCorrect) {
+            html += '<div class="wm-all-correct">';
+            html += '<div class="wm-all-correct-icon">\uD83C\uDF89</div>';
+            html += '<div class="wm-all-correct-text">All correct! Perfect score.</div>';
+            html += '</div>';
+        }
+
+        // Per-part results
+        result.parts.forEach(function(partResult, idx) {
+            var questionPart = q.parts[idx];
+            if (!questionPart) return;
+
+            html += '<div class="wm-part-result">';
+
+            var scoreClass = "zero";
+            if (partResult.totalAwarded === partResult.totalAvailable) scoreClass = "full";
+            else if (partResult.totalAwarded > 0) scoreClass = "partial";
+
+            html += '<div class="wm-part-result-header">';
+            html += '<span class="wm-part-result-label">Part (' +
+                StudyUI._escapeHtml(questionPart.partLabel) + ')</span>';
+            html += '<span class="wm-part-result-score ' + scoreClass + '">' +
+                partResult.totalAwarded + ' / ' + partResult.totalAvailable + '</span>';
+            html += '</div>';
+
+            // AI Reading
+            if (partResult.reading) {
+                html += '<div class="wm-ai-reading">';
+                html += '<div class="wm-ai-reading-label">AI Reading of Your Work</div>';
+                html += '<div class="wm-ai-reading-text">' + partResult.reading + '</div>';
+                html += '</div>';
+            }
+
+            // Marking criteria
+            html += '<div class="wm-marking-criteria">';
+            html += '<div class="wm-marking-criteria-header">Marking Criteria</div>';
+
+            if (partResult.marks) {
+                partResult.marks.forEach(function(mark, markIdx) {
+                    var criterion = questionPart.marking[mark.criterionIndex];
+                    if (!criterion) return;
+                    var passClass = mark.awarded ? "passed" : "failed";
+                    var icon = mark.awarded ? "\u2713" : "\u2717";
+                    var clickAttr = "";
+                    var hintHtml = "";
+
+                    if (!mark.awarded) {
+                        clickAttr = ' onclick="WrittenMode.overrideMark(' + idx + ', ' + markIdx + ', this)"';
+                        hintHtml = '<span class="wm-override-hint">\u2190 tap if AI misread</span>';
+                    }
+
+                    html += '<div class="wm-marking-row ' + passClass + '" id="wm-mark-' + idx + '-' + markIdx + '"' + clickAttr + '>';
+                    html += '<div class="wm-mark-icon">' + icon + '</div>';
+                    html += '<div class="wm-mark-detail">';
+                    html += '<div class="wm-mark-text">' + StudyUI._escapeHtml(criterion.text) +
+                        ' [' + criterion.awarded + ']' + hintHtml +
+                        '<span class="wm-override-label">overridden</span></div>';
+                    if (mark.reason) {
+                        html += '<div class="wm-mark-reason">' + mark.reason + '</div>';
+                    }
+                    html += '</div>';
+                    html += '</div>';
+                });
+            }
+            html += '</div>';
+
+            // Error diagnosis
+            if (partResult.errorType && partResult.skillDiagnosis) {
+                html += '<div class="wm-error-diagnosis">';
+                html += '<div class="wm-error-diagnosis-label">';
+                html += '\u26A0\uFE0F Skill/Process Error ';
+                html += '<span class="wm-error-type-badge ' + partResult.errorType + '">' +
+                    partResult.errorType + '</span>';
+                html += '</div>';
+                html += '<div class="wm-error-diagnosis-text">' +
+                    partResult.skillDiagnosis + '</div>';
+                html += '</div>';
+            }
+
+            // Solution lines with error marking
+            if (questionPart.originalSolution) {
+                html += '<div class="wm-solution-lines-result" id="wm-sol-lines-' + idx + '">';
+                html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);' +
+                    'text-transform:uppercase;letter-spacing:0.03em;margin-bottom:8px;">Worked Solution</div>';
+
+                questionPart.originalSolution.forEach(function(line, lineIdx) {
+                    var lineNum = lineIdx + 1;
+                    var lineClass = "";
+                    var arrowHtml = "";
+
+                    if (partResult.errorLine) {
+                        if (lineNum < partResult.errorLine) {
+                            lineClass = "correct-line";
+                        } else if (lineNum === partResult.errorLine) {
+                            lineClass = "error-line";
+                            arrowHtml = '<span class="wm-error-arrow">\u2190 error here</span>';
+                        } else {
+                            lineClass = "error-line";
+                        }
+                    } else if (partResult.totalAwarded === partResult.totalAvailable) {
+                        lineClass = "correct-line";
+                    } else {
+                        lineClass = "error-line";
+                    }
+
+                    html += '<div class="wm-sol-line ' + lineClass +
+                        '" id="wm-sol-line-' + idx + '-' + lineNum + '">';
+                    html += '<span class="wm-line-num">' + lineNum + '</span>';
+                    html += '<span>' + StudyUI._escapeHtml(line.text) + '</span>';
+                    html += arrowHtml;
+                    html += '</div>';
+                });
+
+                html += '</div>';
+            }
+
+            html += '</div>'; // .wm-part-result
+        });
+
+        container.innerHTML = html;
+
+        // Show next actions
+        var nextActions = document.getElementById("wm-next-actions");
+        if (nextActions) nextActions.classList.remove("wm-hidden");
+
+        // Render MathJax
+        UI.renderMath(container);
+
+        // Scroll to results
+        container.scrollIntoView({ behavior: "smooth" });
+
+        // Show notation popup
+        WrittenMode.showNotationPopup(result);
+
+        // Record results into the StudyUI pipeline
+        WrittenMode._recordAIResults(result);
+    },
+
+    // ---- RECORD AI RESULTS INTO EXISTING PIPELINE ----
+
+    _recordAIResults: function(result) {
+        var q = StudyUI.currentQuestion;
+        if (!q || !q.parts) return;
+
+        q.parts.forEach(function(part, idx) {
+            var partResult = result.parts[idx];
+            if (!partResult) return;
+
+            var totalMarks = part.partMarks || 0;
+            var earned = partResult.totalAwarded || 0;
+
+            // Map AI result to the same format as self-assessment
+            if (earned === totalMarks) {
+                StudyUI.partResults[idx] = {
+                    status: "correct",
+                    errorLine: null,
+                    marksEarned: earned,
+                    marksAvailable: totalMarks,
+                    answerMethod: "stylus",
+                    errorType: null
+                };
+            } else {
+                StudyUI.partResults[idx] = {
+                    status: "error",
+                    errorLine: partResult.errorLine || 1,
+                    marksEarned: earned,
+                    marksAvailable: totalMarks,
+                    answerMethod: "stylus",
+                    errorType: partResult.errorType || "execution"
+                };
+            }
+        });
+
+        StudyUI.assessedParts = q.parts.length;
+    },
+
+    // ---- NOTATION POPUP ----
+
+    showNotationPopup: function(result) {
+        if (!result || !result.parts) return;
+
+        var messages = [];
+        var hasWarning = false;
+        result.parts.forEach(function(p) {
+            if (p.notationFeedback && p.notationFeedback.message) {
+                messages.push({
+                    part: p.partLabel,
+                    correct: p.notationFeedback.correct,
+                    message: p.notationFeedback.message
+                });
+                if (!p.notationFeedback.correct) hasWarning = true;
+            }
+        });
+
+        if (messages.length === 0) return;
+
+        var popup = document.getElementById("wm-notation-popup");
+        var overlay = document.getElementById("wm-notation-overlay");
+
+        var combinedMsg = "";
+        messages.forEach(function(m) {
+            if (messages.length > 1) {
+                combinedMsg += "<strong>Part (" + m.part + "):</strong> ";
+            }
+            combinedMsg += m.message;
+            if (messages.length > 1) combinedMsg += "<br><br>";
+        });
+
+        var isGood = !hasWarning;
+        popup.className = "wm-notation-popup " + (isGood ? "notation-good" : "notation-warn");
+        document.getElementById("wm-notation-icon").textContent = isGood ? "\u2705" : "\u26A0\uFE0F";
+        document.getElementById("wm-notation-label").textContent = isGood ? "Good Notation!" : "Fix Your Notation";
+        document.getElementById("wm-notation-msg").innerHTML = combinedMsg;
+
+        overlay.classList.add("visible");
+
+        UI.renderMath(popup);
+
+        if (isGood) {
+            setTimeout(function() {
+                WrittenMode.dismissNotation();
+            }, 4000);
+        }
+    },
+
+    dismissNotation: function() {
+        var overlay = document.getElementById("wm-notation-overlay");
+        if (overlay) overlay.classList.remove("visible");
+    },
+
+    // ---- OVERRIDE MARK ----
+
+    overrideMark: function(partIdx, markIdx, rowEl) {
+        var result = window._wmMarkingResult;
+        if (!result || !result.parts[partIdx]) return;
+
+        var partResult = result.parts[partIdx];
+        var mark = partResult.marks[markIdx];
+        if (!mark) return;
+
+        if (mark._originalAwarded === undefined) {
+            mark._originalAwarded = mark.awarded;
+        }
+
+        if (!mark.awarded) {
+            mark.awarded = true;
+            partResult.totalAwarded++;
+            rowEl.classList.remove("failed");
+            rowEl.classList.add("overridden");
+            rowEl.querySelector(".wm-mark-icon").textContent = "\u2713";
+        } else if (mark._originalAwarded === false) {
+            mark.awarded = false;
+            partResult.totalAwarded--;
+            rowEl.classList.remove("overridden");
+            rowEl.classList.add("failed");
+            rowEl.querySelector(".wm-mark-icon").textContent = "\u2717";
+        }
+
+        // Update part score display
+        var partScoreEl = document.querySelector(
+            "#wm-results-container .wm-part-result:nth-child(" + (partIdx + 2) + ") .wm-part-result-score");
+        if (partScoreEl) {
+            partScoreEl.textContent = partResult.totalAwarded + " / " + partResult.totalAvailable;
+            if (partResult.totalAwarded === partResult.totalAvailable) {
+                partScoreEl.className = "wm-part-result-score full";
+            } else if (partResult.totalAwarded > 0) {
+                partScoreEl.className = "wm-part-result-score partial";
+            } else {
+                partScoreEl.className = "wm-part-result-score zero";
+            }
+        }
+
+        // Recalculate total
+        var totalEarned = 0;
+        var totalAvailable = 0;
+        result.parts.forEach(function(p) {
+            totalEarned += p.totalAwarded;
+            totalAvailable += p.totalAvailable;
+        });
+
+        var scoreEl = document.querySelector(".wm-results-score");
+        if (scoreEl) {
+            scoreEl.innerHTML = '<span class="wm-earned">' + totalEarned +
+                '</span><span class="wm-total"> / ' + totalAvailable + ' marks</span>';
+        }
+
+        // Update solution lines
+        WrittenMode.updateSolutionLines(partIdx);
+
+        // Re-record results with updated marks
+        WrittenMode._recordAIResults(result);
+    },
+
+    updateSolutionLines: function(partIdx) {
+        var result = window._wmMarkingResult;
+        if (!result || !result.parts[partIdx]) return;
+        var partResult = result.parts[partIdx];
+        var questionPart = StudyUI.currentQuestion.parts[partIdx];
+        if (!questionPart || !questionPart.originalSolution) return;
+
+        var allAwarded = partResult.marks.every(function(m) { return m.awarded; });
+        var effectiveErrorLine = allAwarded ? null : partResult.errorLine;
+
+        questionPart.originalSolution.forEach(function(line, lineIdx) {
+            var lineNum = lineIdx + 1;
+            var lineEl = document.getElementById("wm-sol-line-" + partIdx + "-" + lineNum);
+            if (!lineEl) return;
+
+            lineEl.classList.remove("correct-line", "error-line");
+            var arrow = lineEl.querySelector(".wm-error-arrow");
+            if (arrow) arrow.remove();
+
+            if (effectiveErrorLine) {
+                if (lineNum < effectiveErrorLine) {
+                    lineEl.classList.add("correct-line");
+                } else {
+                    lineEl.classList.add("error-line");
+                    if (lineNum === effectiveErrorLine) {
+                        var arrowSpan = document.createElement("span");
+                        arrowSpan.className = "wm-error-arrow";
+                        arrowSpan.textContent = "\u2190 error here";
+                        lineEl.appendChild(arrowSpan);
+                    }
+                }
+            } else if (allAwarded) {
+                lineEl.classList.add("correct-line");
+            } else {
+                lineEl.classList.add("error-line");
+            }
+        });
+    },
+
+    // ---- SYSTEM PROMPT ----
+
+    buildSystemPrompt: function() {
+        return "You are marking a student's handwritten maths answer for a WACE Methods exam question. " +
+            "Analyse the handwritten working in the image and mark it against the provided marking criteria.\n\n" +
+
+            "For each part, return JSON with this exact structure:\n" +
+            '{\n  "parts": [\n    {\n' +
+            '      "partLabel": "a",\n' +
+            '      "reading": "LaTeX-formatted transcription of what the student wrote",\n' +
+            '      "marks": [\n' +
+            '        {"criterionIndex": 0, "awarded": true, "reason": "brief explanation with \\\\(LaTeX\\\\)"},\n' +
+            '        {"criterionIndex": 1, "awarded": false, "reason": "brief explanation with \\\\(LaTeX\\\\)"}\n' +
+            '      ],\n' +
+            '      "totalAwarded": 3,\n' +
+            '      "totalAvailable": 4,\n' +
+            '      "errorLine": 2,\n' +
+            '      "errorType": "execution",\n' +
+            '      "skillDiagnosis": "1-2 sentence diagnosis with \\\\(LaTeX\\\\) for any math",\n' +
+            '      "notationFeedback": {"correct": false, "message": "explanation with \\\\(LaTeX\\\\) for math parts"}\n' +
+            '    }\n  ]\n}\n\n' +
+
+            "CRITICAL RULES:\n\n" +
+
+            "ANTI-HALLUCINATION \u2014 DO NOT INVENT STUDENT WORK:\n" +
+            "- You MUST mark ONLY what is visibly written on the canvas. " +
+            "Do NOT assume, infer, or extrapolate mathematical knowledge beyond what is explicitly shown.\n" +
+            "- If the student writes a single number, letter, or short expression that does not constitute " +
+            "a valid mathematical attempt at the question, award 0 marks for ALL criteria.\n" +
+            "- NEVER connect a coincidental number to a step in the solution.\n" +
+            "- A correct final answer written alone with NO working earns ONLY the 'correct answer' criterion " +
+            "(if one exists), NOT any method/process marks.\n" +
+            "- If the student's answer is completely wrong, unrelated, or nonsense, award 0 marks for ALL criteria.\n" +
+            "- When in doubt, err on the side of NOT awarding marks.\n\n" +
+
+            "HANDWRITING READING \u2014 READ WHAT IS ACTUALLY WRITTEN:\n" +
+            "- Your 'reading' field MUST accurately transcribe what the student wrote, NOT the correct answer.\n" +
+            "- Pay close attention to exponents and superscripts.\n" +
+            "- Read each symbol as written. Only interpret genuinely ambiguous symbols generously.\n" +
+            "- FORMATTING: Wrap all math in LaTeX delimiters \\\\( and \\\\). " +
+            "Applies to reading, reason, skillDiagnosis, and notationFeedback.message.\n\n" +
+
+            "MARK TYPES AND DEPENDENCIES:\n" +
+            "Each criterion may have a type: M (Method), A (Accuracy), or B (Independent). Default is M.\n" +
+            "- M (Method): Awarded for correct method/process, even if arithmetic result is wrong.\n" +
+            "- A (Accuracy): Awarded for correct results. NEVER award A if prerequisite M was not awarded (no M0 A1). " +
+            "Check deps list \u2014 ALL dependencies must be awarded first.\n" +
+            "- B (Independent): Standalone, no dependencies.\n\n" +
+
+            "FOLLOW-THROUGH MARKING:\n" +
+            "ONE ERROR = ONE PENALTY. A student should only lose marks where they actually made a mistake.\n\n" +
+
+            "WITHIN A PART: If a student makes an error at one step and consistently carries their wrong value " +
+            "through subsequent steps using correct method, penalise ONLY at the error step. " +
+            "Award subsequent M marks if the process is correct. " +
+            "Award subsequent A marks if correct relative to their wrong value \u2014 UNLESS flagged CAO.\n\n" +
+
+            "ACROSS PARTS: If a student gets an earlier part wrong but correctly uses their wrong answer " +
+            "in a later part, the wrong answer BECOMES 'correct' for subsequent parts. " +
+            "Award all M and A marks \u2014 UNLESS flagged CAO.\n\n" +
+
+            "UNREALISTIC FT RESULTS: If follow-through produces physically impossible or " +
+            "mathematically invalid results, withhold the FINAL accuracy mark. Still award method marks.\n\n" +
+
+            "CAO \u2014 CORRECT ANSWER ONLY: If flagged CAO, ONLY award if answer exactly matches. No FT.\n\n" +
+
+            "ISW \u2014 IGNORE SUBSEQUENT WORKING: Once correct answer shown, ignore further incorrect working. " +
+            "Does NOT apply if subsequent working changes the final answer to something wrong.\n\n" +
+
+            "MR \u2014 MISREAD RULE: If student misread a value but applied correct method throughout: " +
+            "award ALL M and A marks, then deduct 1 mark. Set errorType to 'misread'.\n\n" +
+
+            "MULTIPLE ATTEMPTS: Mark the method leading to the final stated answer. " +
+            "If no final answer indicated, mark the last complete attempt. " +
+            "Crossed-out but legible work: mark if no replacement exists.\n\n" +
+
+            "TRANSCRIPTION ERRORS: If working shows correct value but copied incorrectly to final answer, " +
+            "award marks based on the WORKING.\n\n" +
+
+            "ACCURACY CONVENTIONS: Accept equivalent forms unless criterion specifies a form. " +
+            "Enforce sig figs/dp ONLY when explicitly required. " +
+            "Probability: accept fraction, decimal, or percentage. Units: enforce only if required.\n\n" +
+
+            "NOTATION CHECK (does NOT affect marks): " +
+            "notationFeedback is REQUIRED for every part. " +
+            "Check variable names match the question, proper LHS, +C on indefinite integrals. Advisory only.\n\n" +
+
+            "COMBINED STEPS: If a criterion is clearly demonstrated within another step, AWARD it. " +
+            "But if marking key awards SEPARATE marks for method steps, student MUST show both explicitly. " +
+            "PRINCIPLE: process criteria need visible demonstration; knowledge criteria can be implicit.\n\n" +
+
+            "AWARD POSITIVELY: Credit valid work wherever it appears. Accept any valid method unless specified. " +
+            "Do not penalise the same error twice. Whole marks only.\n\n" +
+
+            "OTHER: errorLine is 1-indexed. errorType is setup/execution/interpretation/misread/null. JSON only, no markdown.";
+    },
+
+    // ---- INIT ----
+
+    init: function() {
+        // API key save button
+        var saveBtn = document.getElementById("btn-save-api-key");
+        if (saveBtn) {
+            saveBtn.addEventListener("click", function() {
+                var input = document.getElementById("settings-api-key");
+                var key = input ? input.value.trim() : "";
+                if (key && key.startsWith("sk-ant-")) {
+                    WrittenMode.setApiKey(key);
+                    WrittenMode.updateApiKeyStatus();
+                    input.value = "";
+                    alert("API key saved.");
+                } else if (key) {
+                    alert("That doesn't look like a valid Anthropic API key. It should start with 'sk-ant-'.");
+                }
+            });
+        }
+
+        // Notation dismiss button
+        var dismissBtn = document.getElementById("wm-notation-dismiss");
+        if (dismissBtn) {
+            dismissBtn.addEventListener("click", function() {
+                WrittenMode.dismissNotation();
+            });
+        }
+
+        // Load existing key into status
+        WrittenMode.updateApiKeyStatus();
+    },
+
+    updateApiKeyStatus: function() {
+        var statusEl = document.getElementById("api-key-status");
+        if (!statusEl) return;
+        var key = WrittenMode.getApiKey();
+        if (key) {
+            statusEl.textContent = "\u2713 API key configured (" + key.substring(0, 12) + "...)";
+            statusEl.className = "api-key-status configured";
+        } else {
+            statusEl.textContent = "No API key configured";
+            statusEl.className = "api-key-status missing";
+        }
+    }
+};
+
+
+// ============================================================================
 // UI MODULE
 // Handles tab switching, welcome screen, settings, and rendering helpers.
 // ============================================================================
@@ -1645,7 +2651,7 @@ var UI = {
             });
         }
 
-        // Config toggle groups (section filter, focus filter, revise config)
+        // Config toggle groups (section filter, focus filter)
         var toggleGroups = document.querySelectorAll(".config-toggle-group");
         toggleGroups.forEach(function(group) {
             var buttons = group.querySelectorAll(".config-toggle");
@@ -1660,32 +2666,6 @@ var UI = {
                 });
             });
         });
-
-        // Revise mode toggle: show/hide exam count row
-        var reviseModeGroup = document.getElementById("revise-mode-group");
-        if (reviseModeGroup) {
-            reviseModeGroup.querySelectorAll(".config-toggle").forEach(function(btn) {
-                btn.addEventListener("click", function() {
-                    var countRow = document.getElementById("revise-exam-count-row");
-                    if (countRow) {
-                        countRow.style.display =
-                            (btn.getAttribute("data-value") === "exam") ? "block" : "none";
-                    }
-                });
-            });
-        }
-
-        // Revise answer method toggle: currently only Paper is active
-        // (Stylus/Written Mode will be enabled in a future build)
-
-        // Revise exam count slider
-        var reviseCountInput = document.getElementById("revise-exam-count-input");
-        var reviseCountDisplay = document.getElementById("revise-exam-count-display");
-        if (reviseCountInput && reviseCountDisplay) {
-            reviseCountInput.addEventListener("input", function() {
-                reviseCountDisplay.textContent = reviseCountInput.value;
-            });
-        }
 
         // Import/export buttons (Phase S5)
         document.getElementById("btn-import-update").addEventListener("click", function() {
@@ -2157,6 +3137,20 @@ var StudyUI = {
             if (focusBtn) wrongListOnly = focusBtn.getAttribute("data-value") === "wrongonly";
         }
 
+        // Read answer method
+        var answerMethod = "paper";
+        var answerGroup = document.getElementById("study-answer-group");
+        if (answerGroup) {
+            var ansBtn = answerGroup.querySelector('[aria-pressed="true"]');
+            if (ansBtn) answerMethod = ansBtn.getAttribute("data-value");
+        }
+
+        // Check API key if stylus mode
+        if (answerMethod === "stylus" && !WrittenMode.getApiKey()) {
+            alert("No API key configured for Written Mode. Please add your Anthropic API key in Settings before using Stylus mode.");
+            return;
+        }
+
         // Estimate question count from time: ~1 minute per mark
         var goal = StudyUI.estimateQuestions(minutes, sectionFilter);
 
@@ -2189,7 +3183,8 @@ var StudyUI = {
         SessionEngine.start("study", null, {
             goal: goal,
             sectionFilter: sectionFilter,
-            wrongListOnly: wrongListOnly
+            wrongListOnly: wrongListOnly,
+            answerMethod: answerMethod
         }).then(function() {
             StudyUI._nextReminderMinutes = 30; // reset duration reminder
             StudyUI.loadNextQuestion();
@@ -2271,294 +3266,6 @@ var StudyUI = {
                 StudyUI.renderQuestion(result);
             });
         });
-    },
-
-    /**
-     * Load next question in exam mode from the pre-built queue.
-     * @private
-     */
-    _loadExamQuestion: function() {
-        var idx = SessionEngine.examQueueIndex;
-        var queue = SessionEngine.examQueue;
-
-        if (idx >= queue.length) {
-            // All exam questions done -- show review landing
-            StudyUI._showExamReviewLanding();
-            return;
-        }
-
-        var item = queue[idx];
-        SessionEngine.examQueueIndex++;
-        SessionEngine.totalCount++;
-        SessionEngine.currentQuestion = item.questionData;
-        SessionEngine.currentFilename = item.filename;
-
-        // Store for review later
-        SessionEngine.examAnswers.push({
-            filename: item.filename,
-            questionData: item.questionData,
-            targetProblemType: item.targetProblemType,
-            questionNumber: SessionEngine.examQueueIndex
-        });
-
-        var result = {
-            filename: item.filename,
-            questionData: item.questionData,
-            targetProblemType: item.targetProblemType,
-            questionNumber: SessionEngine.examQueueIndex,
-            sessionGoal: queue.length
-        };
-
-        StudyUI.renderQuestion(result);
-    },
-
-    /**
-     * Show the exam review landing page after all questions are answered.
-     * @private
-     */
-    _showExamReviewLanding: function() {
-        var area = document.getElementById(StudyUI._activeAreaId);
-        if (!area) return;
-
-        var total = SessionEngine.examAnswers.length;
-        var html = '<div class="session-summary">';
-        html += '<div class="summary-header">';
-        html += '<div class="summary-icon">' + SYMBOLS.CLIPBOARD + '</div>';
-        html += '<h2>Exam Complete</h2>';
-        html += '</div>';
-        html += '<p style="text-align:center; color:var(--text-secondary); margin-bottom:var(--space-xl);">' +
-            'You answered ' + total + ' question' + (total !== 1 ? 's' : '') +
-            '. Now review each solution and mark how you went.</p>';
-        html += '<div class="summary-actions">';
-        html += '<button class="btn btn-primary btn-large" id="exam-start-review">' +
-            'Review Answers</button>';
-        html += '</div>';
-        html += '</div>';
-
-        area.innerHTML = html;
-
-        document.getElementById("exam-start-review").addEventListener("click", function() {
-            StudyUI._examReviewIndex = 0;
-            StudyUI._inExamReview = true;
-            StudyUI._showExamReviewQuestion(0);
-        });
-    },
-
-    /** Current exam review index */
-    _examReviewIndex: 0,
-
-    /** Whether we're currently in the exam review phase */
-    _inExamReview: false,
-
-    /**
-     * Show a single question + solution for exam review self-assessment.
-     * @private
-     */
-    _showExamReviewQuestion: function(idx) {
-        var answers = SessionEngine.examAnswers;
-        if (idx >= answers.length) {
-            // All reviewed -- show session summary
-            StudyUI._inExamReview = false;
-            StudyUI.showSessionSummary();
-            return;
-        }
-
-        var item = answers[idx];
-        var area = document.getElementById(StudyUI._activeAreaId);
-        if (!area) return;
-
-        // Set current state so assessment recording works
-        StudyUI.currentFilename = item.filename;
-        StudyUI.currentQuestion = item.questionData;
-        StudyUI.partResults = {};
-        StudyUI.guidedAccessedThisQuestion = false;
-        StudyUI.assessedParts = 0;
-        StudyUI._resultsRecorded = false;
-        StudyUI.totalParts = item.questionData.parts ? item.questionData.parts.length : 0;
-        StudyUI._examReviewIndex = idx;
-
-        var q = item.questionData;
-        var html = '';
-
-        // Review header
-        html += '<div class="exam-review-header">';
-        html += '<h2>Review: Question ' + (idx + 1) + ' of ' + answers.length + '</h2>';
-        html += '<div class="exam-review-progress">';
-        var pct = Math.round(((idx) / answers.length) * 100);
-        html += '<div class="progress-bar" style="max-width:300px;margin:var(--space-sm) auto;">' +
-            '<div class="progress-fill" style="width:' + pct + '%"></div></div>';
-        html += '</div></div>';
-
-        // Question card (same as normal render)
-        html += '<div class="question-card">';
-        html += '<div class="question-header">';
-        html += '<h3 class="question-ref">' +
-            StudyUI._escapeHtml(q.questionReference || item.filename) + '</h3>';
-        html += '<div class="question-badges">';
-        html += '<span class="badge badge-section">' +
-            StudyUI._escapeHtml(q.sectionName || "") + '</span>';
-        html += '<span class="badge badge-marks">' + (q.totalMarks || 0) + ' marks</span>';
-        html += '</div></div>';
-
-        if (q.questionStimulus) {
-            html += '<div class="question-stimulus">' +
-                StudyUI._escapeHtml(q.questionStimulus) + '</div>';
-        }
-
-        if (q.images && q.images.length > 0) {
-            html += '<div class="question-diagrams">';
-            q.images.forEach(function(img) {
-                var imgPath = StudyUI._getDiagramPath(img, q._pool);
-                html += '<img src="' + StudyUI._escapeHtml(imgPath) +
-                    '" class="question-diagram" alt="Diagram">';
-            });
-            html += '</div>';
-        }
-
-        if (q.parts) {
-            q.parts.forEach(function(part, pidx) {
-                html += '<div class="question-part" data-part-index="' + pidx + '">';
-                html += '<div class="part-header">';
-                html += '<span class="part-label">(' + StudyUI._escapeHtml(part.partLabel) + ')</span>';
-                html += '<span class="part-marks">[' + part.partMarks + ' mark' +
-                    (part.partMarks !== 1 ? 's' : '') + ']</span>';
-                html += '</div>';
-                html += '<div class="part-text">' + StudyUI._escapeHtml(part.questionText) + '</div>';
-                if (part.diagramsNeeded && part.diagramsNeeded.length > 0) {
-                    html += '<div class="part-diagrams">';
-                    part.diagramsNeeded.forEach(function(d) {
-                        var dPath = StudyUI._getDiagramPath(d, q._pool);
-                        html += '<img src="' + StudyUI._escapeHtml(dPath) +
-                            '" class="question-diagram" alt="Diagram">';
-                    });
-                    html += '</div>';
-                }
-                html += '</div>';
-            });
-        }
-        html += '</div>'; // .question-card
-
-        // Show solution immediately for review
-        html += '<div id="solution-area"></div>';
-
-        area.innerHTML = html;
-        UI.renderMath(area);
-
-        // Immediately show the solution (reuse existing method internals)
-        StudyUI._renderExamReviewSolution(q, idx);
-    },
-
-    /**
-     * Render the solution for exam review with self-assessment.
-     * After all parts assessed, automatically advance.
-     * @private
-     */
-    _renderExamReviewSolution: function(q, reviewIdx) {
-        var solArea = document.getElementById("solution-area");
-        if (!solArea || !q.parts) return;
-
-        var html = '<div class="solution-container">';
-        html += '<h3 class="solution-title">Worked Solution</h3>';
-
-        // Quick assess
-        if (q.parts.length > 0) {
-            var totalMarks = 0;
-            q.parts.forEach(function(p) { totalMarks += (p.partMarks || 0); });
-            html += '<div class="quick-assess" id="quick-assess">';
-            html += '<span class="quick-assess-label">Quick mark:</span>';
-            html += '<button class="btn btn-correct btn-quick" ' +
-                'onclick="StudyUI.assessAllParts(\'correct\')">' +
-                SYMBOLS.CHECK + ' All Correct (' + totalMarks + '/' + totalMarks + ')</button>';
-            html += '<button class="btn btn-error btn-quick" ' +
-                'onclick="StudyUI.assessAllParts(\'wrong\')">' +
-                SYMBOLS.CROSS + ' All Wrong (0/' + totalMarks + ')</button>';
-            html += '</div>';
-        }
-
-        q.parts.forEach(function(part, partIdx) {
-            html += '<div class="solution-part" data-part-idx="' + partIdx + '">';
-            html += '<h4 class="solution-part-header">Part (' +
-                StudyUI._escapeHtml(part.partLabel) + ') ' +
-                SYMBOLS.BULLET + ' ' + part.partMarks + ' mark' +
-                (part.partMarks !== 1 ? 's' : '') + '</h4>';
-
-            if (part.originalSolution && part.originalSolution.length > 0) {
-                html += '<div class="solution-lines" id="sol-lines-' + partIdx + '">';
-                part.originalSolution.forEach(function(line, lineIdx) {
-                    if (!line.shown) return;
-                    html += '<div class="solution-line" data-line="' + (lineIdx + 1) + '">';
-                    html += '<span class="line-number">' + (lineIdx + 1) + '</span>';
-                    html += '<span class="line-text">' + StudyUI._escapeHtml(line.text) + '</span>';
-                    html += '</div>';
-                });
-                html += '</div>';
-            }
-
-            if (part.marking && part.marking.length > 0) {
-                html += '<div class="marking-criteria" id="marking-' + partIdx + '">';
-                html += '<div class="marking-header">Marking Criteria</div>';
-                part.marking.forEach(function(m, mIdx) {
-                    html += '<div class="marking-row" data-mark-idx="' + mIdx + '">';
-                    html += '<span class="mark-awarded">' + m.awarded + '</span>';
-                    html += '<span class="mark-text">' + StudyUI._escapeHtml(m.text) + '</span>';
-                    html += '</div>';
-                });
-                html += '</div>';
-            }
-
-            html += '<div class="self-assess" id="assess-' + partIdx + '">';
-            html += '<div class="assess-prompt">How did you go on this part?</div>';
-            html += '<div class="assess-buttons">';
-            html += '<button class="btn btn-correct" ' +
-                'onclick="StudyUI.assessPart(' + partIdx + ', \'correct\')">' +
-                SYMBOLS.CHECK + ' 100% Correct</button>';
-            html += '<button class="btn btn-error" ' +
-                'onclick="StudyUI.assessPart(' + partIdx + ', \'error\')">' +
-                SYMBOLS.CROSS + ' I made an error</button>';
-            html += '</div>';
-            html += '<a href="#" class="unsure-link" ' +
-                'onclick="StudyUI.assessPart(' + partIdx +
-                ', \'unsure\'); return false;">Correct but unsure</a>';
-            html += '</div>';
-
-            html += '<div class="error-line-select" id="error-select-' + partIdx +
-                '" style="display:none;">';
-            html += '<button class="btn btn-all-wrong" ' +
-                'onclick="StudyUI.selectErrorLine(' + partIdx +
-                ', 1)">Got it completely wrong (0/' + part.partMarks + ')</button>';
-            html += '<div class="error-prompt">Or tap the line where you <strong>first</strong>' +
-                ' went wrong:</div>';
-            if (part.originalSolution) {
-                part.originalSolution.forEach(function(line, lineIdx) {
-                    if (!line.shown) return;
-                    html += '<div class="error-line-option" onclick="StudyUI.selectErrorLine(' +
-                        partIdx + ', ' + (lineIdx + 1) + ')">';
-                    html += '<span class="line-number">' + (lineIdx + 1) + '</span>';
-                    html += '<span class="line-text">' + StudyUI._escapeHtml(line.text) + '</span>';
-                    html += '</div>';
-                });
-            }
-            html += '</div>';
-
-            html += '<div class="part-result" id="result-' + partIdx + '"></div>';
-            html += '</div>'; // solution-part
-        });
-
-        html += '</div>'; // solution-container
-
-        // Navigation for review
-        html += '<div class="exam-review-nav" id="exam-review-nav" style="display:none;">';
-        if (reviewIdx < SessionEngine.examAnswers.length - 1) {
-            html += '<button class="btn btn-primary btn-large" id="exam-review-next">' +
-                'Next Question ' + SYMBOLS.ARROW_RIGHT + '</button>';
-        } else {
-            html += '<button class="btn btn-primary btn-large" id="exam-review-finish">' +
-                'Finish Review</button>';
-        }
-        html += '</div>';
-
-        solArea.innerHTML = html;
-        UI.renderMath(solArea);
     },
 
     /**
@@ -2674,25 +3381,45 @@ var StudyUI = {
                     });
                     html += '</div>';
                 }
+
+                // STYLUS MODE: add canvas row inside each part
+                if (SessionEngine.answerMethod === "stylus") {
+                    html += WrittenMode.renderCanvasRow(part.partLabel);
+                }
+
                 html += '</div>';
             });
         }
 
-        // Show Solution button OR Exam mode navigation
-        if (SessionEngine.examMode) {
-            // Exam mode: no solution, just "Next Question"
-            html += '<div class="exam-question-nav">';
-            html += '<p class="solution-prompt">Work through this question on paper, then move on.</p>';
-            var isLast = SessionEngine.examQueueIndex >= SessionEngine.examQueue.length;
-            if (isLast) {
-                html += '<button class="btn btn-primary btn-large" id="exam-next-btn">' +
-                    'Finish Exam ' + SYMBOLS.ARROW_RIGHT + '</button>';
-            } else {
-                html += '<button class="btn btn-primary btn-large" id="exam-next-btn">' +
-                    'Next Question ' + SYMBOLS.ARROW_RIGHT + '</button>';
-            }
+        // STYLUS MODE: sticky mark bar instead of paper prompt
+        if (SessionEngine.answerMethod === "stylus") {
+            html += '<div class="wm-mark-area" id="wm-mark-area">';
+            html += '<div class="wm-mark-bar-inner">';
+            html += '<div class="wm-timer wm-hidden" id="wm-timer">';
+            html += '<span class="wm-timer-icon">\u23F0</span>';
+            html += '<span class="wm-timer-display" id="wm-timer-display">0:00</span>';
             html += '</div>';
+            html += '<button class="wm-btn-mark" id="wm-mark-btn" disabled>';
+            html += '\u2713 Mark My Answer</button>';
+            html += '<span class="wm-mark-hint" id="wm-mark-hint">';
+            html += 'Write your answer above</span>';
+            html += '</div></div>';
+
+            // Results container (hidden until marking complete)
+            html += '<div class="wm-results-container wm-hidden" id="wm-results-container"></div>';
+
+            // Next actions (hidden until marking complete)
+            html += '<div class="wm-next-actions wm-hidden" id="wm-next-actions">';
+            html += '<button class="btn btn-primary btn-large" id="wm-next-question-btn">' +
+                'Next Question ' + SYMBOLS.ARROW_RIGHT + '</button>';
+            html += '<button class="btn btn-retry btn-large" id="wm-another-btn">' +
+                SYMBOLS.LIGHTNING + ' Another like this</button>';
+            html += '<button class="btn btn-secondary" id="wm-end-session-btn">' +
+                'End Session</button>';
+            html += '</div>';
+
         } else {
+            // PAPER MODE: original flow
             html += '<div class="show-solution-area">';
             html += '<p class="solution-prompt">Work through this question on paper, ' +
                 'then check your answer.</p>';
@@ -2703,10 +3430,8 @@ var StudyUI = {
 
         html += '</div>'; // .question-card
 
-        // Solution area (hidden initially) -- only needed in interactive mode
-        if (!SessionEngine.examMode) {
-            html += '<div id="solution-area" style="display:none;"></div>';
-        }
+        // Solution area (hidden initially)
+        html += '<div id="solution-area" style="display:none;"></div>';
 
         // Session control
         html += '<div class="session-controls" id="session-controls" style="display:none;">';
@@ -2715,16 +3440,44 @@ var StudyUI = {
 
         area.innerHTML = html;
 
-        // Bind exam mode next button
-        if (SessionEngine.examMode) {
-            var examNextBtn = document.getElementById("exam-next-btn");
-            if (examNextBtn) {
-                examNextBtn.addEventListener("click", function() {
-                    StudyUI._loadExamQuestion();
+        // STYLUS MODE: init canvases and bind mark button
+        if (SessionEngine.answerMethod === "stylus") {
+            setTimeout(function() {
+                WrittenMode.initCanvasesForQuestion(q);
+                WrittenMode.QuestionTimer.start(q);
+            }, 50);
+
+            var markBtn = document.getElementById("wm-mark-btn");
+            if (markBtn) {
+                markBtn.addEventListener("click", function() {
+                    WrittenMode.markAnswer();
                 });
             }
+
+            var wmNextBtn = document.getElementById("wm-next-question-btn");
+            if (wmNextBtn) {
+                wmNextBtn.addEventListener("click", function() {
+                    StudyUI.loadNextQuestion();
+                    window.scrollTo(0, 0);
+                });
+            }
+
+            var wmAnotherBtn = document.getElementById("wm-another-btn");
+            if (wmAnotherBtn) {
+                wmAnotherBtn.addEventListener("click", function() {
+                    StudyUI.anotherLikeThis();
+                });
+            }
+
+            var wmEndBtn = document.getElementById("wm-end-session-btn");
+            if (wmEndBtn) {
+                wmEndBtn.addEventListener("click", function() {
+                    StudyUI.showSessionSummary();
+                });
+            }
+
         } else {
-            // Bind show solution button
+            // PAPER MODE: bind show solution button
             var showBtn = document.getElementById("show-solution-btn");
             if (showBtn) {
                 showBtn.addEventListener("click", function() {
@@ -3310,35 +4063,6 @@ var StudyUI = {
         var assessed = Object.keys(StudyUI.partResults).length;
         if (assessed < StudyUI.totalParts) return;
 
-        // If we're in exam review mode, show the review nav instead of normal next area
-        if (StudyUI._inExamReview) {
-            // Record results for this question
-            StudyUI._recordResultsIfNeeded().then(function() {
-                var reviewNav = document.getElementById("exam-review-nav");
-                if (reviewNav) {
-                    reviewNav.style.display = "flex";
-
-                    var nextBtn = document.getElementById("exam-review-next");
-                    if (nextBtn) {
-                        nextBtn.addEventListener("click", function() {
-                            StudyUI._showExamReviewQuestion(StudyUI._examReviewIndex + 1);
-                        });
-                    }
-
-                    var finishBtn = document.getElementById("exam-review-finish");
-                    if (finishBtn) {
-                        finishBtn.addEventListener("click", function() {
-                            StudyUI._inExamReview = false;
-                            StudyUI.showSessionSummary();
-                        });
-                    }
-
-                    reviewNav.scrollIntoView({ behavior: "smooth" });
-                }
-            });
-            return;
-        }
-
         // All parts assessed -- show the next area (results recorded on Next click)
         StudyUI._showNextArea();
     },
@@ -3724,333 +4448,134 @@ var StudyUI = {
 // ============================================================================
 var ReviseUI = {
 
-    /** Currently selected topic and subtopic names */
-    _selectedTopic: null,
-    _selectedSubtopic: null,
-
-    /** Cached mastery map for the current refresh */
-    _masteryMap: null,
-    _unlockedSet: null,
-
     /**
-     * Refresh the cascade selector on the Revise tab.
-     * Builds the topic column from TAXONOMY_DATA, filtered to unlocked PTs only.
+     * Refresh the topic tree on the Revise tab.
+     * Builds a collapsible tree from TAXONOMY_DATA with mastery indicators.
      */
     refresh: function() {
         var container = document.getElementById("topic-tree-container");
         var emptyHint = document.getElementById("revise-empty-hint");
-        if (!container) { console.warn("ReviseUI: no topic-tree-container found"); return; }
+        if (!container) return;
 
         var taxonomy = QuestionEngine.taxonomyData;
         if (!taxonomy || Object.keys(taxonomy).length === 0) {
-            console.warn("ReviseUI: no taxonomy data loaded");
-            container.style.display = "none";
+            container.innerHTML = "";
             if (emptyHint) emptyHint.style.display = "block";
             return;
         }
-
-        // Build unlocked set
-        var unlockedSet = {};
-        QuestionEngine.unlockedProblemTypes.forEach(function(pt) {
-            unlockedSet[pt] = true;
-        });
-        ReviseUI._unlockedSet = unlockedSet;
-
-        console.log("ReviseUI: " + QuestionEngine.unlockedProblemTypes.length +
-            " unlocked PTs, " + Object.keys(taxonomy).length + " taxonomy topics");
-
-        // Check if any topics have unlocked PTs
-        var hasAny = false;
-        Object.keys(taxonomy).forEach(function(topic) {
-            var pts = ReviseUI._getProblemTypesForNode(taxonomy, topic, null, null);
-            var matched = pts.filter(function(pt) { return unlockedSet[pt]; });
-            if (matched.length > 0) {
-                hasAny = true;
-                console.log("ReviseUI: Topic '" + topic + "' has " + matched.length + " unlocked PTs");
-            }
-        });
-
-        if (!hasAny) {
-            container.style.display = "none";
-            if (emptyHint) emptyHint.style.display = "block";
-            return;
-        }
-
-        container.style.display = "block";
         if (emptyHint) emptyHint.style.display = "none";
 
-        // Load mastery, then build topic column
+        // Load mastery data to show indicators
         DB.getAll(STORE_MASTERY).then(function(records) {
             var masteryMap = {};
             records.forEach(function(r) { masteryMap[r.problemType] = r; });
-            ReviseUI._masteryMap = masteryMap;
 
-            console.log("ReviseUI: Rendering topics, " + records.length + " mastery records loaded");
-            ReviseUI._renderTopics();
-            ReviseUI._clearSubtopics();
-            ReviseUI._clearProblemTypes();
-            ReviseUI._hideActionBar();
-            ReviseUI._selectedTopic = null;
-            ReviseUI._selectedSubtopic = null;
-        }).catch(function(err) {
-            console.error("ReviseUI: Failed to load mastery data:", err);
-            // Still render topics even without mastery data
-            ReviseUI._masteryMap = {};
-            ReviseUI._renderTopics();
-            ReviseUI._clearSubtopics();
-            ReviseUI._clearProblemTypes();
-            ReviseUI._hideActionBar();
-        });
-    },
-
-    /**
-     * Render the topics column.
-     * @private
-     */
-    _renderTopics: function() {
-        var list = document.getElementById("cascade-topic-list");
-        if (!list) return;
-
-        var taxonomy = QuestionEngine.taxonomyData;
-        var unlockedSet = ReviseUI._unlockedSet;
-        var masteryMap = ReviseUI._masteryMap;
-        var html = "";
-
-        Object.keys(taxonomy).forEach(function(topic) {
-            var topicPTs = ReviseUI._getProblemTypesForNode(taxonomy, topic, null, null);
-            var topicUnlocked = topicPTs.filter(function(pt) { return unlockedSet[pt]; });
-            if (topicUnlocked.length === 0) return;
-
-            var stats = ReviseUI._computeNodeStats(topicUnlocked, masteryMap);
-
-            html += '<div class="cascade-item" data-topic="' + ReviseUI._esc(topic) + '">';
-            html += '<span class="cascade-indicator ' + stats.cssClass.replace("tt-ind-", "cascade-ind-") + '"></span>';
-            html += '<span class="cascade-label">' + ReviseUI._esc(topic) + '</span>';
-            html += '<span class="cascade-meta">' + topicUnlocked.length + '</span>';
-            html += '</div>';
-        });
-
-        list.innerHTML = html;
-
-        // Bind click events
-        list.querySelectorAll(".cascade-item").forEach(function(item) {
-            item.addEventListener("click", function() {
-                var topic = item.getAttribute("data-topic");
-                ReviseUI._selectTopic(topic, list);
+            var unlockedSet = {};
+            QuestionEngine.unlockedProblemTypes.forEach(function(pt) {
+                unlockedSet[pt] = true;
             });
-        });
-    },
 
-    /**
-     * Handle topic selection — populate subtopics column.
-     * @private
-     */
-    _selectTopic: function(topic, topicList) {
-        // Highlight selection
-        topicList.querySelectorAll(".cascade-item").forEach(function(el) {
-            el.classList.toggle("cascade-selected",
-                el.getAttribute("data-topic") === topic);
-        });
+            var html = '<div class="topic-tree">';
 
-        ReviseUI._selectedTopic = topic;
-        ReviseUI._selectedSubtopic = null;
+            var topics = Object.keys(taxonomy);
+            topics.forEach(function(topic) {
+                // Check if any problem types in this topic are unlocked
+                var topicPTs = ReviseUI._getProblemTypesForNode(taxonomy, topic, null, null);
+                var topicUnlocked = topicPTs.filter(function(pt) { return unlockedSet[pt]; });
+                if (topicUnlocked.length === 0) return;
 
-        var taxonomy = QuestionEngine.taxonomyData;
-        var unlockedSet = ReviseUI._unlockedSet;
-        var masteryMap = ReviseUI._masteryMap;
+                var topicStats = ReviseUI._computeNodeStats(topicUnlocked, masteryMap);
 
-        var subList = document.getElementById("cascade-subtopic-list");
-        if (!subList) return;
-
-        var subtopics = taxonomy[topic];
-        if (!subtopics) {
-            subList.innerHTML = '<div class="cascade-empty">No subtopics</div>';
-            ReviseUI._clearProblemTypes();
-            return;
-        }
-
-        var html = "";
-        Object.keys(subtopics).forEach(function(subtopic) {
-            var subPTs = ReviseUI._getProblemTypesForNode(taxonomy, topic, subtopic, null);
-            var subUnlocked = subPTs.filter(function(pt) { return unlockedSet[pt]; });
-            if (subUnlocked.length === 0) return;
-
-            var stats = ReviseUI._computeNodeStats(subUnlocked, masteryMap);
-
-            html += '<div class="cascade-item" data-subtopic="' + ReviseUI._esc(subtopic) + '">';
-            html += '<span class="cascade-indicator ' + stats.cssClass.replace("tt-ind-", "cascade-ind-") + '"></span>';
-            html += '<span class="cascade-label">' + ReviseUI._esc(subtopic) + '</span>';
-            html += '<span class="cascade-meta">' + subUnlocked.length + '</span>';
-            html += '</div>';
-        });
-
-        subList.innerHTML = html || '<div class="cascade-empty">No subtopics available</div>';
-
-        // Bind click events
-        subList.querySelectorAll(".cascade-item").forEach(function(item) {
-            item.addEventListener("click", function() {
-                var subtopic = item.getAttribute("data-subtopic");
-                ReviseUI._selectSubtopic(subtopic, subList);
-            });
-        });
-
-        // Clear PT column and show action bar for topic-level revision
-        ReviseUI._clearProblemTypes();
-        ReviseUI._showActionBar(topic, "topic");
-    },
-
-    /**
-     * Handle subtopic selection — populate problem types column.
-     * @private
-     */
-    _selectSubtopic: function(subtopic, subList) {
-        // Highlight selection
-        subList.querySelectorAll(".cascade-item").forEach(function(el) {
-            el.classList.toggle("cascade-selected",
-                el.getAttribute("data-subtopic") === subtopic);
-        });
-
-        ReviseUI._selectedSubtopic = subtopic;
-
-        var taxonomy = QuestionEngine.taxonomyData;
-        var topic = ReviseUI._selectedTopic;
-        var unlockedSet = ReviseUI._unlockedSet;
-        var masteryMap = ReviseUI._masteryMap;
-
-        var ptList = document.getElementById("cascade-pt-list");
-        if (!ptList || !topic) return;
-
-        var concepts = taxonomy[topic] && taxonomy[topic][subtopic];
-        if (!concepts) {
-            ptList.innerHTML = '<div class="cascade-empty">No problem types</div>';
-            return;
-        }
-
-        var html = "";
-        Object.keys(concepts).forEach(function(concept) {
-            var pts = concepts[concept] || [];
-            var unlockedPTs = pts.filter(function(pt) { return unlockedSet[pt]; });
-            if (unlockedPTs.length === 0) return;
-
-            // Concept header
-            html += '<div class="cascade-pt-concept">' + ReviseUI._esc(concept) + '</div>';
-
-            unlockedPTs.forEach(function(pt) {
-                var rec = masteryMap[pt];
-                var status = rec ? rec.status : "new";
-                var statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
-                var accuracy = "";
-                if (rec && rec.totalAttempts > 0) {
-                    accuracy = Math.round((rec.correctAttempts / rec.totalAttempts) * 100) + "%";
-                }
-
-                html += '<div class="cascade-pt-item cascade-pt-' + status + '">';
-                html += '<span class="cascade-indicator cascade-ind-' +
-                    (status === "mastered" ? "mastered" :
-                     status === "struggling" ? "struggling" :
-                     status === "improving" ? "partial" : "new") + '"></span>';
-                html += '<span class="cascade-label">' + ReviseUI._esc(pt) + '</span>';
-                html += '<span class="cascade-pt-status">' +
-                    (accuracy ? accuracy : statusLabel) + '</span>';
+                html += '<div class="tt-topic">';
+                html += '<div class="tt-node tt-node-topic" data-filter="' +
+                    ReviseUI._esc(topic) + '" data-level="topic">';
+                html += '<span class="tt-expand-icon">' + SYMBOLS.ARROW_RIGHT + '</span>';
+                html += '<span class="tt-indicator ' + topicStats.cssClass + '"></span>';
+                html += '<span class="tt-label">' + ReviseUI._esc(topic) + '</span>';
+                html += '<span class="tt-meta">' + topicStats.summary + '</span>';
+                html += '<button class="btn btn-sm tt-revise-btn" data-filter="' +
+                    ReviseUI._esc(topic) + '" data-level="topic">Revise</button>';
                 html += '</div>';
+
+                // Subtopics (collapsed by default)
+                html += '<div class="tt-children" style="display:none;">';
+                var subtopics = Object.keys(taxonomy[topic]);
+                subtopics.forEach(function(subtopic) {
+                    var subPTs = ReviseUI._getProblemTypesForNode(taxonomy, topic, subtopic, null);
+                    var subUnlocked = subPTs.filter(function(pt) { return unlockedSet[pt]; });
+                    if (subUnlocked.length === 0) return;
+
+                    var subStats = ReviseUI._computeNodeStats(subUnlocked, masteryMap);
+
+                    html += '<div class="tt-subtopic">';
+                    html += '<div class="tt-node tt-node-subtopic" data-filter="' +
+                        ReviseUI._esc(subtopic) + '" data-level="subtopic">';
+                    html += '<span class="tt-expand-icon">' + SYMBOLS.ARROW_RIGHT + '</span>';
+                    html += '<span class="tt-indicator ' + subStats.cssClass + '"></span>';
+                    html += '<span class="tt-label">' + ReviseUI._esc(subtopic) + '</span>';
+                    html += '<span class="tt-meta">' + subStats.summary + '</span>';
+                    html += '<button class="btn btn-sm tt-revise-btn" data-filter="' +
+                        ReviseUI._esc(subtopic) + '" data-level="subtopic">Revise</button>';
+                    html += '</div>';
+
+                    // Concept categories
+                    html += '<div class="tt-children" style="display:none;">';
+                    var concepts = Object.keys(taxonomy[topic][subtopic]);
+                    concepts.forEach(function(concept) {
+                        var cPTs = taxonomy[topic][subtopic][concept] || [];
+                        var cUnlocked = cPTs.filter(function(pt) { return unlockedSet[pt]; });
+                        if (cUnlocked.length === 0) return;
+
+                        var cStats = ReviseUI._computeNodeStats(cUnlocked, masteryMap);
+
+                        html += '<div class="tt-concept">';
+                        html += '<div class="tt-node tt-node-concept" data-filter="' +
+                            ReviseUI._esc(concept) + '" data-level="concept">';
+                        html += '<span class="tt-expand-icon tt-leaf"></span>';
+                        html += '<span class="tt-indicator ' + cStats.cssClass + '"></span>';
+                        html += '<span class="tt-label">' + ReviseUI._esc(concept) + '</span>';
+                        html += '<span class="tt-meta">' + cStats.summary + '</span>';
+                        html += '<button class="btn btn-sm tt-revise-btn" data-filter="' +
+                            ReviseUI._esc(concept) + '" data-level="concept">Revise</button>';
+                        html += '</div>';
+
+                        // Problem types listed inline
+                        if (cUnlocked.length > 0) {
+                            html += '<div class="tt-pt-list">';
+                            cUnlocked.forEach(function(pt) {
+                                var rec = masteryMap[pt];
+                                var status = rec ? rec.status : "new";
+                                var icon = ReviseUI._statusIcon(status);
+                                html += '<span class="tt-pt-item tt-pt-' + status + '" title="' +
+                                    ReviseUI._esc(pt) + ' (' + status + ')">' +
+                                    icon + ' ' + ReviseUI._esc(pt) + '</span>';
+                            });
+                            html += '</div>';
+                        }
+
+                        html += '</div>'; // tt-concept
+                    });
+                    html += '</div>'; // tt-children (concepts)
+                    html += '</div>'; // tt-subtopic
+                });
+                html += '</div>'; // tt-children (subtopics)
+                html += '</div>'; // tt-topic
             });
+
+            html += '</div>'; // topic-tree
+
+            container.innerHTML = html;
+            ReviseUI._bindTreeEvents(container);
         });
-
-        ptList.innerHTML = html || '<div class="cascade-empty">No problem types available</div>';
-
-        // Update action bar for subtopic-level revision
-        ReviseUI._showActionBar(subtopic, "subtopic");
-    },
-
-    /**
-     * Clear the subtopics column.
-     * @private
-     */
-    _clearSubtopics: function() {
-        var list = document.getElementById("cascade-subtopic-list");
-        if (list) list.innerHTML = '<div class="cascade-empty">Select a topic</div>';
-    },
-
-    /**
-     * Clear the problem types column.
-     * @private
-     */
-    _clearProblemTypes: function() {
-        var list = document.getElementById("cascade-pt-list");
-        if (list) list.innerHTML = '<div class="cascade-empty">Select a subtopic</div>';
-    },
-
-    /**
-     * Show the revise action bar.
-     * @private
-     */
-    _showActionBar: function(filterName, level) {
-        var bar = document.getElementById("revise-action-bar");
-        var label = document.getElementById("revise-action-label");
-        var btn = document.getElementById("revise-start-btn");
-        if (!bar) return;
-
-        if (label) label.textContent = "Revising: " + filterName;
-        bar.style.display = "flex";
-
-        // Rebind click (remove old listener by cloning)
-        if (btn) {
-            var newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener("click", function() {
-                ReviseUI.startRevision(filterName, level);
-            });
-        }
-    },
-
-    /**
-     * Hide the action bar.
-     * @private
-     */
-    _hideActionBar: function() {
-        var bar = document.getElementById("revise-action-bar");
-        if (bar) bar.style.display = "none";
     },
 
     /**
      * Start a revision session for a given filter.
-     *
-    /**
-     * Start a revision session for a given filter.
-     * Reads mode/section/answer-method config from the revise config panel.
      *
      * @param {string} filter - topic, subtopic, or concept name
      * @param {string} level - "topic", "subtopic", or "concept"
      */
     startRevision: function(filter, level) {
-        // Read config from the revise panel
-        var modeGroup = document.getElementById("revise-mode-group");
-        var sectionGroup = document.getElementById("revise-section-group");
-        var answerGroup = document.getElementById("revise-answer-group");
-        var isExamMode = false;
-        var sectionFilter = "mix";
-        var answerMethod = "paper";
-
-        if (answerGroup) {
-            var activeAnswer = answerGroup.querySelector('[aria-pressed="true"]');
-            if (activeAnswer) answerMethod = activeAnswer.getAttribute("data-value");
-        }
-        if (modeGroup) {
-            var activeMode = modeGroup.querySelector('[aria-pressed="true"]');
-            if (activeMode) isExamMode = (activeMode.getAttribute("data-value") === "exam");
-        }
-        if (sectionGroup) {
-            var activeSec = sectionGroup.querySelector('[aria-pressed="true"]');
-            if (activeSec) sectionFilter = activeSec.getAttribute("data-value");
-        }
-
-        // For exam mode, read question count
-        var examCount = 8;
-        if (isExamMode) {
-            var countInput = document.getElementById("revise-exam-count-input");
-            if (countInput) examCount = parseInt(countInput.value, 10) || 8;
-        }
-
         // Switch the question area to the revise tab
         StudyUI._activeAreaId = "revise-question-area";
 
@@ -4059,13 +4584,36 @@ var ReviseUI = {
         if (reviseHome) reviseHome.style.display = "none";
         if (reviseArea) reviseArea.style.display = "block";
 
-        var goal = isExamMode ? examCount : 10;
+        // Read config toggles
+        var answerMethod = "paper";
+        var ansGroup = document.getElementById("revise-answer-group");
+        if (ansGroup) {
+            var ansBtn = ansGroup.querySelector('[aria-pressed="true"]');
+            if (ansBtn) answerMethod = ansBtn.getAttribute("data-value");
+        }
+
+        var sectionFilter = "mix";
+        var secGroup = document.getElementById("revise-section-group");
+        if (secGroup) {
+            var secBtn = secGroup.querySelector('[aria-pressed="true"]');
+            if (secBtn) sectionFilter = secBtn.getAttribute("data-value");
+        }
+
+        // Check API key if stylus mode
+        if (answerMethod === "stylus" && !WrittenMode.getApiKey()) {
+            alert("No API key configured for Written Mode. Please add your Anthropic API key in Settings before using Stylus mode.");
+            if (reviseHome) reviseHome.style.display = "block";
+            if (reviseArea) reviseArea.style.display = "none";
+            return;
+        }
+
+        // Use a reasonable default goal
+        var goal = 10;
 
         SessionEngine.start("revision", filter, {
             goal: goal,
             sectionFilter: sectionFilter,
             wrongListOnly: false,
-            examMode: isExamMode,
             answerMethod: answerMethod
         }).then(function() {
             // Check if there are any questions available
@@ -4081,7 +4629,7 @@ var ReviseUI = {
                     '<h3>No questions available</h3>' +
                     '<p>There are no questions available for "' +
                     StudyUI._escapeHtml(filter) +
-                    '" with the current section filter. You may have mastered everything in this area!</p>' +
+                    '" right now. You may have mastered everything in this area!</p>' +
                     '<button class="btn btn-primary" id="revise-back-btn">' +
                     'Back to Topics</button>' +
                     '</div>';
@@ -4091,160 +4639,9 @@ var ReviseUI = {
                 return;
             }
 
-            if (isExamMode) {
-                // Pre-build the exam queue with variety across problem types
-                ReviseUI._buildExamQueue(filter, sectionFilter, examCount).then(function(queue) {
-                    if (queue.length === 0) {
-                        reviseArea.innerHTML =
-                            '<div class="revise-no-questions">' +
-                            '<h3>No questions available</h3>' +
-                            '<p>Could not find enough questions for an exam on "' +
-                            StudyUI._escapeHtml(filter) + '".</p>' +
-                            '<button class="btn btn-primary" id="revise-back-btn">' +
-                            'Back to Topics</button>' +
-                            '</div>';
-                        document.getElementById("revise-back-btn").addEventListener("click", function() {
-                            StudyUI.returnToHome();
-                        });
-                        return;
-                    }
-                    SessionEngine.examQueue = queue;
-                    SessionEngine.examQueueIndex = 0;
-                    SessionEngine.examAnswers = [];
-                    SessionEngine.sessionGoal = queue.length;
-                    StudyUI._nextReminderMinutes = 30;
-                    StudyUI._loadExamQuestion();
-                });
-            } else {
-                StudyUI._nextReminderMinutes = 30;
-                StudyUI.loadNextQuestion();
-            }
+            StudyUI._nextReminderMinutes = 30;
+            StudyUI.loadNextQuestion();
         });
-    },
-
-    /**
-     * Build an exam queue with maximum variety across problem types.
-     * Uses round-robin across available PTs for the given topic.
-     *
-     * @param {string} topicFilter
-     * @param {string} sectionFilter
-     * @param {number} count - desired number of questions
-     * @returns {Promise<Array>} array of {filename, questionData, targetProblemType}
-     * @private
-     */
-    _buildExamQueue: function(topicFilter, sectionFilter, count) {
-        // Collect all problem types matching the topic filter
-        var matchingPTs = {};
-        var keys = Object.keys(QuestionEngine.allQuestions);
-        keys.forEach(function(k) {
-            var q = QuestionEngine.allQuestions[k];
-            if (!q.parts) return;
-            q.parts.forEach(function(part) {
-                if (part.topic === topicFilter ||
-                    part.subtopic === topicFilter ||
-                    part.conceptCategory === topicFilter ||
-                    part.problemType === topicFilter) {
-                    if (part.problemType) {
-                        matchingPTs[part.problemType] = true;
-                    }
-                }
-            });
-        });
-
-        // Filter to only unlocked PTs
-        var unlockedSet = {};
-        QuestionEngine.unlockedProblemTypes.forEach(function(pt) {
-            unlockedSet[pt] = true;
-        });
-
-        var ptList = Object.keys(matchingPTs).filter(function(pt) {
-            return unlockedSet[pt];
-        });
-
-        if (ptList.length === 0) return Promise.resolve([]);
-
-        // Shuffle the PT list for variety
-        for (var i = ptList.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var temp = ptList[i];
-            ptList[i] = ptList[j];
-            ptList[j] = temp;
-        }
-
-        // Round-robin: distribute count across PTs
-        var ptSlots = []; // array of problem types to fill, in order
-        var idx = 0;
-        for (var s = 0; s < count; s++) {
-            ptSlots.push(ptList[idx % ptList.length]);
-            idx++;
-        }
-
-        // Set section filter for question selection
-        QuestionSelector.sectionFilter = sectionFilter;
-        var served = {};
-
-        // Select one question per slot sequentially
-        var queue = [];
-        var selectNext = function(slotIdx) {
-            if (slotIdx >= ptSlots.length) return Promise.resolve(queue);
-
-            var pt = ptSlots[slotIdx];
-
-            // Find candidates not yet served
-            var candidates = QuestionSelector._findCandidates(pt);
-            candidates = candidates.filter(function(c) {
-                return !served[c.filename];
-            });
-
-            if (candidates.length === 0) {
-                // Skip this slot -- no more questions for this PT
-                return selectNext(slotIdx + 1);
-            }
-
-            return MasteryEngine.getRetryCount(pt).then(function(retryCount) {
-                return DB.getAll(STORE_HISTORY).then(function(histories) {
-                    var histMap = {};
-                    histories.forEach(function(h) { histMap[h.filename] = h; });
-
-                    var now = new Date();
-                    var scored = [];
-                    candidates.forEach(function(c) {
-                        if (served[c.filename]) return;
-                        var score = 0;
-                        var hist = histMap[c.filename];
-                        if (!hist || hist.timesServed === 0) {
-                            score += 10;
-                        } else {
-                            var lastDate = new Date(hist.lastServed + "T00:00:00");
-                            var daysSince = Math.floor((now - lastDate) / 86400000);
-                            if (daysSince > 14) score += 5;
-                            else if (daysSince > 7) score += 2;
-                            else if (daysSince < 3) score -= 5;
-                            if (daysSince < 1) score -= 20;
-                        }
-                        scored.push({ filename: c.filename, questionData: c.questionData, score: score });
-                    });
-
-                    if (scored.length === 0) return selectNext(slotIdx + 1);
-
-                    scored.sort(function(a, b) { return b.score - a.score; });
-                    var topScore = scored[0].score;
-                    var topCandidates = scored.filter(function(s) { return s.score === topScore; });
-                    var pick = topCandidates[Math.floor(Math.random() * topCandidates.length)];
-
-                    served[pick.filename] = true;
-                    queue.push({
-                        filename: pick.filename,
-                        questionData: pick.questionData,
-                        targetProblemType: pt
-                    });
-
-                    return selectNext(slotIdx + 1);
-                });
-            });
-        };
-
-        return selectNext(0);
     },
 
     /**
@@ -4429,6 +4826,44 @@ var ReviseUI = {
             case "review": return SYMBOLS.REVIEW;
             default: return SYMBOLS.BULLET;
         }
+    },
+
+    /**
+     * Bind expand/collapse and revise button events on the tree.
+     * @private
+     */
+    _bindTreeEvents: function(container) {
+        // Expand/collapse on node click
+        container.querySelectorAll(".tt-node").forEach(function(node) {
+            var expandIcon = node.querySelector(".tt-expand-icon");
+            if (!expandIcon || expandIcon.classList.contains("tt-leaf")) return;
+
+            var clickTarget = node;
+            clickTarget.style.cursor = "pointer";
+            clickTarget.addEventListener("click", function(e) {
+                // Don't toggle if clicking the revise button
+                if (e.target.classList.contains("tt-revise-btn")) return;
+
+                var parent = node.parentElement;
+                var children = parent.querySelector(".tt-children");
+                if (!children) return;
+
+                var isOpen = children.style.display !== "none";
+                children.style.display = isOpen ? "none" : "block";
+                expandIcon.textContent = isOpen ? SYMBOLS.ARROW_RIGHT : "\u25BC";
+                expandIcon.classList.toggle("tt-expanded", !isOpen);
+            });
+        });
+
+        // Revise buttons
+        container.querySelectorAll(".tt-revise-btn").forEach(function(btn) {
+            btn.addEventListener("click", function(e) {
+                e.stopPropagation();
+                var filter = btn.getAttribute("data-filter");
+                var level = btn.getAttribute("data-level");
+                ReviseUI.startRevision(filter, level);
+            });
+        });
     },
 
     /**
@@ -6581,6 +7016,7 @@ function initApp() {
         // Step 7: Initialise UI event listeners
         UI.init();
         StudyUI.init();
+        WrittenMode.init();
         PrintUI.init();
         KeyboardShortcuts.init();
 

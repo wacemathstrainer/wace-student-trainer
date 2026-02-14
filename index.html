@@ -145,6 +145,15 @@
                     </div>
                     <div class="session-config">
                         <div class="config-row">
+                            <label>Answer Method:</label>
+                            <div class="config-toggle-group" id="study-answer-group">
+                                <button class="config-toggle" data-value="paper"
+                                        aria-pressed="true">Paper</button>
+                                <button class="config-toggle" data-value="stylus"
+                                        aria-pressed="false">Stylus</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
                             <label for="session-time-input">Study time (minutes):</label>
                             <div class="config-slider">
                                 <input type="range" id="session-time-input" min="5" max="60"
@@ -503,6 +512,17 @@
                     </label>
                 </div>
                 <div class="settings-group">
+                    <h3>Written Mode (Stylus)</h3>
+                    <p class="settings-desc">Enter your Anthropic API key to enable AI-powered
+                        marking of handwritten answers.</p>
+                    <div class="api-key-row">
+                        <input type="password" id="settings-api-key" class="api-key-input"
+                               placeholder="sk-ant-...">
+                        <button id="btn-save-api-key" class="btn btn-secondary">Save</button>
+                    </div>
+                    <p class="api-key-status" id="api-key-status"></p>
+                </div>
+                <div class="settings-group">
                     <h3>Data</h3>
                     <button id="btn-import-update" class="btn btn-secondary">
                         Import Update
@@ -542,6 +562,25 @@
     <!-- Hidden file inputs for import features -->
     <input type="file" id="file-input-update" accept=".json" style="display:none;">
     <input type="file" id="file-input-backup" accept=".json" style="display:none;">
+
+    <!-- Written Mode: Marking overlay (shown during AI marking) -->
+    <div class="wm-marking-overlay wm-hidden" id="wm-marking-overlay">
+        <div class="wm-marking-spinner">
+            <div class="wm-spinner-anim"></div>
+            <div class="wm-spinner-text">Marking your answer...</div>
+            <div class="wm-spinner-sub">Analysing handwriting against the marking key</div>
+        </div>
+    </div>
+
+    <!-- Written Mode: Notation feedback popup -->
+    <div class="wm-notation-overlay" id="wm-notation-overlay">
+        <div class="wm-notation-popup" id="wm-notation-popup">
+            <span class="wm-notation-icon" id="wm-notation-icon"></span>
+            <div class="wm-notation-label" id="wm-notation-label"></div>
+            <div class="wm-notation-msg" id="wm-notation-msg"></div>
+            <button class="wm-notation-dismiss" id="wm-notation-dismiss">Got it</button>
+        </div>
+    </div>
 
     <!-- ============================================================ -->
     <!-- SCRIPTS - loaded from repo root (cloud version)              -->
