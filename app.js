@@ -1733,7 +1733,12 @@ var WrittenMode = {
                 self.elapsed = Math.floor((Date.now() - self.startTime) / 1000);
                 var remaining = self.allowedSeconds - self.elapsed;
 
-                if (!displayEl || !timerEl) return;
+                var timerEl = document.getElementById("wm-timer");
+                var displayEl = document.getElementById("wm-timer-display");
+                if (!displayEl || !timerEl) {
+                    self.stop(); // auto-cleanup if DOM elements removed
+                    return;
+                }
 
                 if (remaining > 0) {
                     displayEl.textContent = self.formatTime(remaining);
@@ -2024,6 +2029,9 @@ var WrittenMode = {
             var msg = "Marking failed: " + err.message +
                 "\n\nWould you like to self-assess this question instead?";
             if (confirm(msg)) {
+                // Hide the mark bar before switching to paper mode
+                var markArea = document.getElementById("wm-mark-area");
+                if (markArea) markArea.classList.add("wm-hidden");
                 // Switch to paper mode for this question only
                 StudyUI.showSolution();
             }
@@ -2216,30 +2224,49 @@ var WrittenMode = {
 
             var totalMarks = part.partMarks || 0;
             var earned = partResult.totalAwarded || 0;
+            var isCorrect = (earned === totalMarks);
 
-            // Map AI result to the same format as self-assessment
-            if (earned === totalMarks) {
-                StudyUI.partResults[idx] = {
-                    status: "correct",
-                    errorLine: null,
-                    marksEarned: earned,
-                    marksAvailable: totalMarks,
-                    answerMethod: "stylus",
-                    errorType: null
-                };
-            } else {
-                StudyUI.partResults[idx] = {
-                    status: "error",
-                    errorLine: partResult.errorLine || 1,
-                    marksEarned: earned,
-                    marksAvailable: totalMarks,
-                    answerMethod: "stylus",
-                    errorType: partResult.errorType || "execution"
-                };
+            // Build markingCriteriaFailed list from AI result
+            var failedCriteria = [];
+            if (partResult.marks) {
+                partResult.marks.forEach(function(mark) {
+                    if (!mark.awarded && mark.criterionIndex !== undefined) {
+                        failedCriteria.push(mark.criterionIndex);
+                    }
+                });
             }
+
+            // Map AI result to the same format as paper self-assessment
+            // Keys must be partLabel (e.g. "a", "b") to match SessionEngine.recordResults
+            StudyUI.partResults[part.partLabel] = {
+                correct: isCorrect,
+                correctButUnsure: false,
+                errorAtLine: isCorrect ? null : (partResult.errorLine || 1),
+                markingCriteriaFailed: failedCriteria,
+                marksEarned: earned,
+                marksAvailable: totalMarks,
+                answerMethod: "stylus",
+                errorType: isCorrect ? null : (partResult.errorType || "execution")
+            };
         });
 
         StudyUI.assessedParts = q.parts.length;
+
+        // Populate _anotherTargetPTs for the "Another like this" button
+        var wrongPTs = [];
+        var allPTs = [];
+        q.parts.forEach(function(part) {
+            if (part.problemType && allPTs.indexOf(part.problemType) === -1) {
+                allPTs.push(part.problemType);
+            }
+            var pr = StudyUI.partResults[part.partLabel];
+            if (pr && !pr.correct && part.problemType) {
+                if (wrongPTs.indexOf(part.problemType) === -1) {
+                    wrongPTs.push(part.problemType);
+                }
+            }
+        });
+        StudyUI._anotherTargetPTs = wrongPTs.length > 0 ? wrongPTs : allPTs;
     },
 
     // ---- NOTATION POPUP ----
@@ -4243,6 +4270,9 @@ var StudyUI = {
      * Show the session summary screen.
      */
     showSessionSummary: function() {
+        // Stop any running Written Mode timer
+        WrittenMode.QuestionTimer.stop();
+
         // Record results for last question before ending session
         StudyUI._recordResultsIfNeeded().then(function() {
             return SessionEngine.end();
