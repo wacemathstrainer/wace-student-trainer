@@ -1,0 +1,52 @@
+// schedule.js -- Taught schedule (teacher creates one per class)
+// NOTE: This is a .js file (not .json) so it loads via <script> tag from file://
+// ENCODING: This file MUST be pure ASCII. All non-ASCII chars are \uXXXX escaped.
+
+const TAUGHT_SCHEDULE = {
+  "className": "12 Methods Per 2 \u2014 2026",
+  "teacherName": "Mr Smith",
+  "createdDate": "2026-02-01",
+  "schedule": [
+    {
+      "date": "2026-02-03",
+      "label": "Week 1 \u2014 Differentiation Basics",
+      "problemTypes": [
+        "Differentiation of polynomial functions",
+        "Differentiation of exponential functions",
+        "Chain rule differentiation",
+        "Product rule differentiation",
+        "Quotient rule differentiation"
+      ]
+    },
+    {
+      "date": "2026-02-10",
+      "label": "Week 2 \u2014 Applications of Derivatives",
+      "problemTypes": [
+        "Stationary point classification",
+        "Curve sketching with derivatives",
+        "Optimization problem",
+        "Rate of change problem"
+      ]
+    },
+    {
+      "date": "2026-02-17",
+      "label": "Week 3 \u2014 Integration Basics",
+      "problemTypes": [
+        "Integration technique",
+        "Definite integral evaluation",
+        "Area under curve"
+      ]
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Week 4 \u2014 Further Integration",
+      "problemTypes": [
+        "Area between curves",
+        "Integration by substitution",
+        "Evaluating definite integral using linearity and interval properties",
+        "Fundamental theorem application"
+      ]
+    }
+  ],
+  "allowAheadOfSchedule": false
+};
