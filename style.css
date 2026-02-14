@@ -3451,6 +3451,11 @@ body.dark-theme input[type="range"] {
 
 .wm-canvas-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .wm-canvas-scribble { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; }
+.wm-canvas-scribble.wm-scribble-hidden { display: none; }
+
+.wm-toolbar-right { margin-left: auto; }
+.wm-rough-toggle { font-size: 0.78rem !important; }
+.wm-rough-toggle.active { background: var(--accent-primary) !important; color: #fff !important; }
 
 .wm-canvas-area {
     border: 1px solid var(--border-color);

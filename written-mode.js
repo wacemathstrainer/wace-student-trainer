@@ -465,6 +465,23 @@ var WrittenMode = {
         }
     },
 
+    toggleRoughWorking: function(partLabel, btn) {
+        var scribbleDiv = document.getElementById("wm-scribble-" + partLabel);
+        if (!scribbleDiv) return;
+        var isHidden = scribbleDiv.classList.toggle("wm-scribble-hidden");
+        if (btn) {
+            btn.classList.toggle("active", !isHidden);
+        }
+        // Initialize the scribble canvas if first time showing
+        if (!isHidden) {
+            var scribbleId = "scribble-" + partLabel;
+            var scribbleCanvas = document.getElementById("wm-canvas-" + scribbleId);
+            if (scribbleCanvas && !WrittenMode.CanvasEngine.canvases[scribbleId]) {
+                WrittenMode.CanvasEngine.init(scribbleId, scribbleCanvas);
+            }
+        }
+    },
+
     checkMarkButton: function() {
         var q = StudyUI.currentQuestion;
         if (!q || !q.parts) return;
@@ -540,12 +557,19 @@ var WrittenMode = {
             '\uD83D\uDDD1 Clear</button>';
         html += '</div>';
 
+        // Rough Working toggle
+        html += '<div class="wm-toolbar-group wm-toolbar-right">';
+        html += '<button class="wm-tool-btn wm-rough-toggle" id="wm-rough-toggle-' + partLabel + '" ' +
+            'onclick="WrittenMode.toggleRoughWorking(\'' + partLabel + '\', this)">' +
+            '\uD83D\uDCDD Rough</button>';
+        html += '</div>';
+
         html += '</div>'; // toolbar
 
-        // Canvas Ã¢â‚¬â€ stacked pair if bgImageUrl is provided
+        // Canvas ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stacked pair if bgImageUrl is provided
         html += '<div class="wm-canvas-wrapper' + (bgImageUrl ? ' wm-canvas-stacked' : '') + '">';
         if (bgImageUrl) {
-            // Background canvas (axes/table image) Ã¢â‚¬â€ sits behind, pointer-events: none
+            // Background canvas (axes/table image) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â sits behind, pointer-events: none
             html += '<canvas class="wm-bg-canvas" id="wm-bg-canvas-' + partLabel +
                 '" data-bg-url="' + StudyUI._escapeHtml(bgImageUrl) + '"' +
                 ' height="' + canvasHeight + '" style="height:' + canvasHeight + 'px;"></canvas>';
@@ -563,9 +587,9 @@ var WrittenMode = {
         html += '</div>'; // canvas-area
         html += '</div>'; // canvas-main
 
-        // Scribble pad
+        // Scribble pad (hidden by default, toggled via Rough Working button)
         var scribbleId = "scribble-" + partLabel;
-        html += '<div class="wm-canvas-scribble">';
+        html += '<div class="wm-canvas-scribble wm-scribble-hidden" id="wm-scribble-' + partLabel + '">';
         html += '<div class="wm-canvas-area">';
         html += '<div class="wm-scribble-label">Rough Working</div>';
         html += '<div class="wm-canvas-toolbar">';
@@ -613,7 +637,13 @@ var WrittenMode = {
                 }
             }
             var sc = document.getElementById("wm-canvas-scribble-" + part.partLabel);
-            if (sc) WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
+            if (sc) {
+                // Only init if scribble panel is visible (not hidden by default)
+                var scribbleDiv = document.getElementById("wm-scribble-" + part.partLabel);
+                if (scribbleDiv && !scribbleDiv.classList.contains("wm-scribble-hidden")) {
+                    WrittenMode.CanvasEngine.init("scribble-" + part.partLabel, sc);
+                }
+            }
         });
     },
 
@@ -658,9 +688,8 @@ var WrittenMode = {
 
             q.parts.forEach(function(part, idx) {
                 var isDrawOn = StudyUI._isDrawOnPart(part);
-                var partDisplayLabel = part._displayLabel || ("(" + part.partLabel + ")");
-                var partInfo = "Part " + partDisplayLabel + " \u2014 " + part.partMarks + " marks\n" +
-                    "Question: " + (part.questionText || part.stimulus || '') + "\n\n";
+                var partInfo = "Part (" + part.partLabel + ") \u2014 " + part.partMarks + " marks\n" +
+                    "Question: " + part.questionText + "\n\n";
 
                 if (isDrawOn) {
                     partInfo += "NOTE: This is a VISUAL/GRAPHICAL question. The student drew their answer " +
@@ -870,9 +899,8 @@ var WrittenMode = {
             else if (partResult.totalAwarded > 0) scoreClass = "partial";
 
             html += '<div class="wm-part-result-header">';
-            html += '<span class="wm-part-result-label">Part ' +
-                (questionPart._displayLabel || ('(' + StudyUI._escapeHtml(questionPart.partLabel) + ')')) +
-                '</span>';
+            html += '<span class="wm-part-result-label">Part (' +
+                StudyUI._escapeHtml(questionPart.partLabel) + ')</span>';
             html += '<span class="wm-part-result-score ' + scoreClass + '">' +
                 partResult.totalAwarded + ' / ' + partResult.totalAvailable + '</span>';
             html += '</div>';
