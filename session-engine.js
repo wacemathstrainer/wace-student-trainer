@@ -123,11 +123,13 @@ var SessionEngine = {
         if (!SessionEngine.active) return Promise.resolve(null);
 
         var targetPT = null;
+        var sourceList = "other"; // Track which list this came from
 
         if (SessionEngine.wrongListOnly) {
             // ----- WRONG LIST ONLY MODE -----
             if (SessionEngine.wrongList.length > 0) {
                 targetPT = SessionEngine.wrongList[0].problemType;
+                sourceList = "wrong";
             } else {
                 return Promise.resolve(null);
             }
@@ -137,6 +139,7 @@ var SessionEngine = {
             // 1st question from wrong list, rest from other lists
             if (SessionEngine.totalCount === 0 && SessionEngine.wrongList.length > 0) {
                 targetPT = SessionEngine.wrongList[0].problemType;
+                sourceList = "wrong";
             } else {
                 targetPT = SessionEngine._pickNonWrong();
             }
@@ -149,6 +152,7 @@ var SessionEngine = {
 
             if (isWrongSlot && SessionEngine.wrongList.length > 0) {
                 targetPT = SessionEngine.wrongList[0].problemType;
+                sourceList = "wrong";
             } else {
                 targetPT = SessionEngine._pickNonWrong();
             }
@@ -159,7 +163,27 @@ var SessionEngine = {
             return Promise.resolve(null);
         }
 
+        // Detect source list if not already set to "wrong"
+        if (sourceList !== "wrong") {
+            var lists = [
+                { name: "fresh", list: SessionEngine.freshList },
+                { name: "improving", list: SessionEngine.improvingList },
+                { name: "review", list: SessionEngine.reviewList },
+                { name: "confidence", list: SessionEngine.confidenceList }
+            ];
+            for (var li = 0; li < lists.length; li++) {
+                for (var lj = 0; lj < lists[li].list.length; lj++) {
+                    if (lists[li].list[lj].problemType === targetPT) {
+                        sourceList = lists[li].name;
+                        break;
+                    }
+                }
+                if (sourceList !== "other") break;
+            }
+        }
+
         // Get retry count for difficulty progression
+        var capturedSourceList = sourceList;
         return MasteryEngine.getRetryCount(targetPT).then(function(count) {
             return QuestionSelector.selectForProblemType(targetPT, count);
         }).then(function(selected) {
@@ -188,7 +212,8 @@ var SessionEngine = {
                 questionData: selected.questionData,
                 targetProblemType: targetPT,
                 questionNumber: SessionEngine.totalCount,
-                sessionGoal: SessionEngine.sessionGoal
+                sessionGoal: SessionEngine.sessionGoal,
+                sourceList: capturedSourceList
             };
         });
     },

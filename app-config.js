@@ -35,7 +35,8 @@ var SYMBOLS = {
     SUN:          "\u2600",     // sun (for dark mode toggle)
     MOON:         "\u263E",     // moon (for light mode toggle)
     ARROW_UP:     "\u2191",     // up arrow (improving)
-    REVIEW:       "\u21BB"      // clockwise loop (review due)
+    REVIEW:       "\u21BB",     // clockwise loop (review due)
+    RETRY:        "\uD83D\uDD04"  // counterclockwise arrows (remediation/retry)
 };
 
 // ---- APP CONSTANTS ----

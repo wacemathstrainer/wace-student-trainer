@@ -314,7 +314,14 @@ var StudyUI = {
         html += '</div>';
 
         // Question header
-        html += '<div class="question-card">';
+        var isRemediation = questionInfo.sourceList === "wrong";
+        html += '<div class="question-card' + (isRemediation ? ' question-card-remediation' : '') + '">';
+        if (isRemediation) {
+            html += '<div class="remediation-banner">' +
+                '<span class="remediation-icon">' + SYMBOLS.RETRY + '</span>' +
+                '<span class="remediation-text">Chosen based on questions you have struggled with before</span>' +
+                '</div>';
+        }
         html += '<div class="question-header">';
         // Build rich question reference: e.g. "WACE 2016 CA \u2014 Question 9"
         var refParts = [];

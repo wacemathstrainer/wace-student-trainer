@@ -851,6 +851,35 @@ body.dark-theme #welcome-screen {
     margin-bottom: var(--space-lg);
 }
 
+/* Remediation question (from wrong/struggling list) */
+.question-card-remediation {
+    border-color: var(--color-warning);
+    border-width: 2px;
+    box-shadow: 0 0 0 1px var(--color-warning-light), var(--shadow-sm);
+}
+
+.remediation-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-md);
+}
+
+.remediation-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.remediation-text {
+    line-height: 1.3;
+}
+
 .question-header {
     display: flex;
     align-items: center;
