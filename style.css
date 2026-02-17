@@ -423,6 +423,9 @@ body.dark-theme #welcome-screen {
     border-bottom: 2px solid var(--border-color);
     padding: 0 var(--space-lg);
     overflow-x: auto;
+    position: sticky;
+    top: var(--header-height);
+    z-index: 99;
 }
 
 .tab-btn {
