@@ -19,6 +19,7 @@
 html {
     font-size: 16px;
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
 }
 
 body {
@@ -468,6 +469,7 @@ body.dark-theme #welcome-screen {
     max-width: var(--max-width);
     margin: 0 auto;
     padding: var(--space-lg);
+    overflow: visible;
 }
 
 .tab-panel {
@@ -1057,48 +1059,74 @@ body.dark-theme #welcome-screen {
     border-bottom: 1px solid var(--border-color);
 }
 
-.solution-part.solution-part-expanded {
+.solution-part-main {
+    min-width: 0;
+}
+
+/* Side-by-side wrapper: solution card + walkthrough sidebar */
+.solution-with-walkthrough {
     display: flex;
     gap: var(--space-lg);
     align-items: flex-start;
+    /* Break out of #tab-content max-width to use full viewport */
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0 var(--space-xl);
+    box-sizing: border-box;
+    max-width: 1400px;
 }
 
-.solution-part-main {
-    flex: 1;
-    min-width: 0;
-}
-
-.solution-part.solution-part-expanded .solution-part-main {
+.solution-with-walkthrough .solution-container {
     flex: 1 1 0;
+    min-width: 0;
+    max-width: 700px;
 }
 
-.solution-part-guided {
+.wm-results-main {
     flex: 1 1 0;
     min-width: 0;
+    max-width: 700px;
 }
 
-/* Widen solution container when walkthroughs are active */
-.solution-container.walkthrough-active {
-    max-width: none;
-    margin-left: calc(-1 * var(--space-lg));
-    margin-right: calc(-1 * var(--space-lg));
-    width: calc(100% + 2 * var(--space-lg));
+.walkthrough-sidebar {
+    flex: 1 1 0;
+    min-width: 280px;
+    max-width: 500px;
+    position: sticky;
+    top: var(--space-lg);
+    max-height: calc(100vh - 2 * var(--space-lg));
+    overflow-y: auto;
 }
 
-@media (max-width: 768px) {
-    .solution-part.solution-part-expanded {
+@media (max-width: 1100px) {
+    .solution-with-walkthrough {
+        max-width: 100%;
+    }
+    .walkthrough-sidebar {
+        min-width: 240px;
+    }
+}
+
+@media (max-width: 900px) {
+    .solution-with-walkthrough {
         flex-direction: column;
-    }
-    .solution-part.solution-part-expanded .solution-part-main {
-        flex: 1;
-    }
-    .solution-part-guided {
-        flex: 1;
-    }
-    .solution-container.walkthrough-active {
-        margin-left: 0;
-        margin-right: 0;
         width: 100%;
+        left: 0;
+        transform: none;
+        padding: 0;
+    }
+    .solution-with-walkthrough .solution-container,
+    .wm-results-main {
+        max-width: none;
+    }
+    .walkthrough-sidebar {
+        flex: none;
+        width: 100%;
+        max-width: none;
+        position: static;
+        max-height: none;
     }
 }
 
@@ -1661,7 +1689,11 @@ body.dark-theme #welcome-screen {
     color: white;
 }
 
-/* Guided panel (right side) */
+/* Guided panel (sidebar) */
+.walkthrough-sidebar-part {
+    margin-bottom: var(--space-lg);
+}
+
 .guided-panel-content {
     background: var(--bg-secondary);
     border: 2px solid var(--accent-primary);
@@ -1674,6 +1706,17 @@ body.dark-theme #welcome-screen {
     color: var(--accent-primary);
     margin-bottom: var(--space-md);
     font-size: 1rem;
+}
+
+.guided-step-header {
+    color: var(--accent-primary);
+    display: block;
+    margin-top: var(--space-sm);
+}
+
+.guided-line {
+    margin: 0 0 var(--space-xs) 0;
+    line-height: 1.6;
 }
 
 

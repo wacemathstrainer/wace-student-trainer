@@ -1078,16 +1078,32 @@ var WrittenMode = {
             html += '</div>'; // .wm-part-result
             html += '</div>'; // .solution-part-main
 
-            // Guided solution panel (hidden, right side)
-            if (questionPart.guidedSolution) {
-                html += '<div class="solution-part-guided" id="sol-guided-' + idx +
-                    '" style="display:none;"></div>';
-            }
-
             html += '</div>'; // .solution-part
         });
 
-        container.innerHTML = html;
+        // Check if any parts have walkthroughs
+        var hasWalkthrough = false;
+        q.parts.forEach(function(p) {
+            if (p.guidedSolution) hasWalkthrough = true;
+        });
+
+        // Wrap in flex layout if walkthroughs exist
+        if (hasWalkthrough) {
+            var wrappedHtml = '<div class="solution-with-walkthrough">';
+            wrappedHtml += '<div class="wm-results-main">' + html + '</div>';
+            wrappedHtml += '<div class="walkthrough-sidebar" id="walkthrough-sidebar">';
+            q.parts.forEach(function(part, idx) {
+                if (part.guidedSolution) {
+                    wrappedHtml += '<div class="walkthrough-sidebar-part" id="walk-' +
+                        idx + '" style="display:none;"></div>';
+                }
+            });
+            wrappedHtml += '</div>';
+            wrappedHtml += '</div>';
+            container.innerHTML = wrappedHtml;
+        } else {
+            container.innerHTML = html;
+        }
 
         // Show next actions
         var nextActions = document.getElementById("wm-next-actions");
@@ -1097,20 +1113,12 @@ var WrittenMode = {
         UI.renderMath(container);
 
         // Auto-show walkthroughs for all parts that have them
-        var q = StudyUI.currentQuestion;
         if (q && q.parts) {
-            var hasAnyWalkthrough = false;
             q.parts.forEach(function(part, idx) {
                 if (part.guidedSolution) {
-                    hasAnyWalkthrough = true;
                     StudyUI.showPartGuided(idx, true);
                 }
             });
-            if (hasAnyWalkthrough) {
-                var solContainer = container.querySelector(".solution-container");
-                if (!solContainer) solContainer = container;
-                solContainer.classList.add("walkthrough-active");
-            }
         }
 
         // Scroll to results
