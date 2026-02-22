@@ -248,6 +248,17 @@ var AccessControl = {
             firebase.initializeApp(FIREBASE_CONFIG);
         }
 
+        // --- Teacher mode URL parameter ---
+        // If ?teacher is in the URL, always show the code screen
+        // so the teacher can enter their password (bypasses auto-login).
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has("teacher")) {
+            return AccessControl._restoreFromIDB().then(function() {
+                AccessControl._showCodeScreen();
+                return { granted: false };
+            });
+        }
+
         // First, restore any credentials from IndexedDB if localStorage was cleared
         return AccessControl._restoreFromIDB().then(function() {
             // Check if this browser already has a claimed code
@@ -354,6 +365,20 @@ var AccessControl = {
         // Handle submit
         btn.addEventListener("click", function() {
             var code = input.value.trim().toUpperCase();
+
+            // --- Teacher mode intercept (silent, no hint to students) ---
+            var teacherPw = (typeof TEACHER_DASHBOARD_PASSWORD !== "undefined")
+                ? TEACHER_DASHBOARD_PASSWORD.toUpperCase() : null;
+            if (teacherPw && code === teacherPw) {
+                screen.style.display = "none";
+                // Set teacher mode flag for this session
+                sessionStorage.setItem("wace_teacher_mode", "true");
+                // Load the normal student app (teacher toolbar injected in initApp)
+                initApp();
+                return;
+            }
+            // -----------------------------------------------------------------
+
             btn.disabled = true;
             btn.textContent = "Checking...";
 

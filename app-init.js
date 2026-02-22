@@ -1,4 +1,66 @@
 // ============================================================================
+// TEACHER TOOLBAR (injected when teacher logs in via ?teacher URL)
+// ============================================================================
+function _injectTeacherToolbar() {
+    var topBarRight = document.querySelector(".top-bar-right");
+    if (!topBarRight) return;
+
+    // Create the teacher menu container
+    var teacherMenu = document.createElement("div");
+    teacherMenu.id = "teacher-toolbar";
+    teacherMenu.className = "teacher-toolbar";
+    teacherMenu.innerHTML =
+        '<button class="teacher-toolbar-btn" id="teacher-toolbar-toggle">' +
+            '<span class="teacher-badge-icon">\uD83C\uDF93</span> Teacher' +
+        '</button>' +
+        '<div class="teacher-toolbar-dropdown" id="teacher-toolbar-dropdown">' +
+            '<button class="teacher-dropdown-item" id="teacher-menu-costs">' +
+                '<span class="teacher-dropdown-icon">\uD83D\uDCB0</span> Costs Dashboard' +
+            '</button>' +
+            '<div class="teacher-dropdown-divider"></div>' +
+            '<button class="teacher-dropdown-item teacher-dropdown-exit" id="teacher-menu-exit">' +
+                '<span class="teacher-dropdown-icon">\u2190</span> Exit Teacher Mode' +
+            '</button>' +
+        '</div>';
+
+    // Insert before the student name
+    topBarRight.insertBefore(teacherMenu, topBarRight.firstChild);
+
+    // Toggle dropdown
+    var toggleBtn = document.getElementById("teacher-toolbar-toggle");
+    var dropdown  = document.getElementById("teacher-toolbar-dropdown");
+
+    toggleBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle("open");
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", function() {
+        dropdown.classList.remove("open");
+    });
+
+    // Costs dashboard
+    document.getElementById("teacher-menu-costs").addEventListener("click", function() {
+        dropdown.classList.remove("open");
+        // Hide the main app, show the teacher dashboard overlay
+        document.getElementById("app-container").style.display = "none";
+        TeacherDashboard.open();
+    });
+
+    // Exit teacher mode
+    document.getElementById("teacher-menu-exit").addEventListener("click", function() {
+        dropdown.classList.remove("open");
+        sessionStorage.removeItem("wace_teacher_mode");
+        // Go back to the code screen (remove ?teacher param)
+        var url = window.location.pathname;
+        window.location.href = url;
+    });
+
+    console.log("Teacher toolbar injected");
+}
+
+// ============================================================================
 // APP INITIALISATION
 // ============================================================================
 function initApp() {
@@ -42,6 +104,11 @@ function initApp() {
         } else {
             console.log("Returning user: " + config.studentName);
             UI.showMainApp(config);
+        }
+
+        // Step 9: Inject teacher toolbar if in teacher mode
+        if (sessionStorage.getItem("wace_teacher_mode") === "true") {
+            _injectTeacherToolbar();
         }
 
         console.log("Initialisation complete.");

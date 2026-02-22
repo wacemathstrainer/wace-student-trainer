@@ -633,6 +633,106 @@
         </div>
     </div>
 
+
+    <!-- ============================================================ -->
+    <!-- TEACHER DASHBOARD (hidden; unlocked via access code screen)  -->
+    <!-- ============================================================ -->
+    <div id="teacher-dashboard" style="display:none; min-height:100vh; background:#faf9f6; font-family:'DM Sans',system-ui,sans-serif;">
+
+        <!-- Header -->
+        <header style="background:#1a1a2e; padding:0 32px; height:60px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100;">
+            <div style="font-family:'Crimson Pro',Georgia,serif; font-size:1.3rem; font-weight:600; color:#b8860b; letter-spacing:-.3px;">
+                WACE Trainer <span style="font-weight:300; color:rgba(255,255,255,.45); font-size:1rem; margin-left:10px;">/ Cost Dashboard</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px;">
+                <div style="font-size:.78rem; color:rgba(255,255,255,.45); display:flex; align-items:center; gap:6px;">
+                    <div id="td-sync-dot" style="width:7px; height:7px; border-radius:50%; background:#aaa;"></div>
+                    <span id="td-sync-label">Loading&hellip;</span>
+                </div>
+                <button onclick="TeacherDashboard.refresh()" style="padding:6px 14px; border-radius:6px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); color:rgba(255,255,255,.75); font-size:.78rem; cursor:pointer;">&#x21bb; Refresh</button>
+                <button onclick="TeacherDashboard.close()" style="padding:6px 14px; border-radius:6px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); color:rgba(255,255,255,.75); font-size:.78rem; cursor:pointer;">&#x2190; Exit</button>
+            </div>
+        </header>
+
+        <div style="max-width:1100px; margin:0 auto; padding:36px 32px 60px;">
+
+            <!-- Error banner -->
+            <div id="td-error" style="display:none; background:#fdf0ef; border:1px solid #e8a49a; color:#c0392b; border-radius:10px; padding:16px 20px; margin-bottom:24px; font-size:.88rem;"></div>
+
+            <!-- Period selector -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; gap:12px;">
+                <div id="td-period-heading" style="font-family:'Crimson Pro',Georgia,serif; font-size:1.5rem; font-weight:600; color:#1a1a2e;">This Week</div>
+                <div style="display:flex; gap:2px; background:#d4d0c8; border-radius:8px; padding:3px;">
+                    <button class="td-period-tab" data-period="week"  onclick="TeacherDashboard.setPeriod('week')"  style="padding:6px 18px; border-radius:6px; border:none; background:#fff; color:#1a1a2e; font-size:.85rem; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.05);">Week</button>
+                    <button class="td-period-tab" data-period="month" onclick="TeacherDashboard.setPeriod('month')" style="padding:6px 18px; border-radius:6px; border:none; background:transparent; color:#6b6b6b; font-size:.85rem; font-weight:500; cursor:pointer;">Month</button>
+                    <button class="td-period-tab" data-period="year"  onclick="TeacherDashboard.setPeriod('year')"  style="padding:6px 18px; border-radius:6px; border:none; background:transparent; color:#6b6b6b; font-size:.85rem; font-weight:500; cursor:pointer;">Year</button>
+                    <button class="td-period-tab" data-period="all"   onclick="TeacherDashboard.setPeriod('all')"   style="padding:6px 18px; border-radius:6px; border:none; background:transparent; color:#6b6b6b; font-size:.85rem; font-weight:500; cursor:pointer;">All Time</button>
+                </div>
+            </div>
+
+            <!-- Summary cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:32px;">
+                <div style="background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid #d4d0c8; border-left:4px solid #1a7a4c;">
+                    <div style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#6b6b6b; margin-bottom:8px;">Total Cost</div>
+                    <div id="td-sum-cost"    style="font-family:'JetBrains Mono',monospace; font-size:1.9rem; font-weight:500; color:#1a1a2e; line-height:1;">&mdash;</div>
+                    <div id="td-sum-cost-usd" style="font-size:.78rem; color:#6b6b6b; margin-top:6px;"></div>
+                </div>
+                <div style="background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid #d4d0c8; border-left:4px solid #2c5f8a;">
+                    <div style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#6b6b6b; margin-bottom:8px;">Active Students</div>
+                    <div id="td-sum-students"     style="font-family:'JetBrains Mono',monospace; font-size:1.9rem; font-weight:500; color:#1a1a2e; line-height:1;">&mdash;</div>
+                    <div id="td-sum-students-sub" style="font-size:.78rem; color:#6b6b6b; margin-top:6px;"></div>
+                </div>
+                <div style="background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid #d4d0c8; border-left:4px solid #b8860b;">
+                    <div style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#6b6b6b; margin-bottom:8px;">API Calls</div>
+                    <div id="td-sum-calls"     style="font-family:'JetBrains Mono',monospace; font-size:1.9rem; font-weight:500; color:#1a1a2e; line-height:1;">&mdash;</div>
+                    <div id="td-sum-calls-sub" style="font-size:.78rem; color:#6b6b6b; margin-top:6px;"></div>
+                </div>
+                <div style="background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid #d4d0c8; border-left:4px solid #b8860b;">
+                    <div style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:#6b6b6b; margin-bottom:8px;">Avg Cost / Student</div>
+                    <div id="td-sum-avg"     style="font-family:'JetBrains Mono',monospace; font-size:1.9rem; font-weight:500; color:#1a1a2e; line-height:1;">&mdash;</div>
+                    <div id="td-sum-avg-sub" style="font-size:.78rem; color:#6b6b6b; margin-top:6px;"></div>
+                </div>
+            </div>
+
+            <!-- Student table -->
+            <div style="background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid #d4d0c8; overflow:hidden;">
+                <div style="padding:20px 24px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #d4d0c8; gap:12px; flex-wrap:wrap;">
+                    <div style="font-family:'Crimson Pro',Georgia,serif; font-size:1.15rem; font-weight:600;">Per-Student Breakdown</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input id="td-search" type="search" placeholder="Search student&hellip;" oninput="TeacherDashboard.filterTable()"
+                               style="padding:7px 12px; border:1.5px solid #d4d0c8; border-radius:7px; font-size:.85rem; color:#1a1a2e; background:#faf9f6; outline:none; width:200px;">
+                        <button onclick="TeacherDashboard.exportCSV()"
+                                style="padding:7px 16px; background:#faf9f6; border:1.5px solid #d4d0c8; border-radius:7px; font-size:.82rem; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                            &#x2B73; Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table id="td-table" style="width:100%; border-collapse:collapse; font-size:.88rem;">
+                        <thead>
+                            <tr style="background:#faf9f6;">
+                                <th onclick="TeacherDashboard.sortBy('name')"  data-col="name"  style="padding:12px 16px; text-align:left; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:#6b6b6b; border-bottom:1px solid #d4d0c8; cursor:pointer; white-space:nowrap; user-select:none;">Student <span id="td-sort-name"></span></th>
+                                <th onclick="TeacherDashboard.sortBy('calls')" data-col="calls" style="padding:12px 16px; text-align:left; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:#6b6b6b; border-bottom:1px solid #d4d0c8; cursor:pointer; white-space:nowrap; user-select:none;">Calls <span id="td-sort-calls"></span></th>
+                                <th onclick="TeacherDashboard.sortBy('cost')"  data-col="cost"  style="padding:12px 16px; text-align:left; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:#6b6b6b; border-bottom:1px solid #d4d0c8; cursor:pointer; white-space:nowrap; user-select:none;">Cost (AUD) <span id="td-sort-cost"></span></th>
+                                <th style="padding:12px 16px; text-align:left; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:#6b6b6b; border-bottom:1px solid #d4d0c8; min-width:120px;">Spend Bar</th>
+                                <th onclick="TeacherDashboard.sortBy('last')"  data-col="last"  style="padding:12px 16px; text-align:left; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:#6b6b6b; border-bottom:1px solid #d4d0c8; cursor:pointer; white-space:nowrap; user-select:none;">Last Active <span id="td-sort-last"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="td-tbody">
+                            <tr><td colspan="5" style="text-align:center; padding:60px 24px; color:#6b6b6b; font-size:.9rem;">Loading&hellip;</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /main -->
+
+        <div style="text-align:center; padding:24px; font-size:.75rem; color:#6b6b6b; border-top:1px solid #d4d0c8; margin-top:40px;">
+            Pricing: claude-sonnet-4 &mdash; Input $3.00 / Output $15.00 per million tokens &mdash; 1 AUD = 0.66 USD
+        </div>
+
+    </div><!-- /#teacher-dashboard -->
+
     <!-- ============================================================ -->
     <!-- SCRIPTS - loaded from repo root (cloud version)              -->
     <!-- ============================================================ -->
@@ -648,6 +748,7 @@
     <!-- App modules (split from app.js) -->
     <script src="app-config.js"></script>
     <script src="db.js"></script>
+    <script src="cost-tracker.js"></script>
     <script src="question-engine.js"></script>
     <script src="mastery-engine.js"></script>
     <script src="question-selector.js"></script>
@@ -662,5 +763,6 @@
     <script src="keyboard-shortcuts.js"></script>
     <script src="print-ui.js"></script>
     <script src="app-init.js"></script>
+    <script src="teacher-dashboard.js"></script>
 </body>
 </html>
