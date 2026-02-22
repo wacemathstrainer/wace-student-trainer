@@ -230,15 +230,18 @@ var DashboardUI = {
             var q = QuestionEngine.allQuestions[filename];
             if (!q.parts) return;
             q.parts.forEach(function(p) {
-                if (!p.topic || !p.conceptCategory || !p.problemType) return;
-                if (!topicMap[p.topic]) topicMap[p.topic] = {};
-                if (!topicMap[p.topic][p.conceptCategory]) {
-                    topicMap[p.topic][p.conceptCategory] = [];
-                }
-                if (topicMap[p.topic][p.conceptCategory].indexOf(p.problemType) === -1) {
-                    topicMap[p.topic][p.conceptCategory].push(p.problemType);
-                }
-                allConcepts[p.conceptCategory] = true;
+                var classifications = QuestionEngine.getPartClassifications(p);
+                classifications.forEach(function(cls) {
+                    if (!cls.topic || !cls.conceptCategory || !cls.problemType) return;
+                    if (!topicMap[cls.topic]) topicMap[cls.topic] = {};
+                    if (!topicMap[cls.topic][cls.conceptCategory]) {
+                        topicMap[cls.topic][cls.conceptCategory] = [];
+                    }
+                    if (topicMap[cls.topic][cls.conceptCategory].indexOf(cls.problemType) === -1) {
+                        topicMap[cls.topic][cls.conceptCategory].push(cls.problemType);
+                    }
+                    allConcepts[cls.conceptCategory] = true;
+                });
             });
         });
 
@@ -898,7 +901,7 @@ var DashboardUI = {
         return DashboardUI._esc(str.substring(0, max - 1)) + "\u2026";
     },
 
-    /** Build a map of problemType -> topic (first found). */
+    /** Build a map of problemType -> topic (first found). Checks classifications[]. */
     _getProblemTypeTopics: function() {
         var ptTopics = {};
         var keys = Object.keys(QuestionEngine.allQuestions);
@@ -906,6 +909,13 @@ var DashboardUI = {
             var q = QuestionEngine.allQuestions[filename];
             if (!q.parts) return;
             q.parts.forEach(function(p) {
+                var classifications = QuestionEngine.getPartClassifications(p);
+                classifications.forEach(function(cls) {
+                    if (cls.problemType && cls.topic && !ptTopics[cls.problemType]) {
+                        ptTopics[cls.problemType] = cls.topic;
+                    }
+                });
+                // Legacy fallback
                 if (p.problemType && p.topic && !ptTopics[p.problemType]) {
                     ptTopics[p.problemType] = p.topic;
                 }

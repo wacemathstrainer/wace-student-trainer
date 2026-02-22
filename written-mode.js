@@ -1175,14 +1175,19 @@ var WrittenMode = {
         var wrongPTs = [];
         var allPTs = [];
         q.parts.forEach(function(part) {
-            if (part.problemType && allPTs.indexOf(part.problemType) === -1) {
-                allPTs.push(part.problemType);
-            }
-            var pr = StudyUI.partResults[part.partLabel];
-            if (pr && !pr.correct && part.problemType) {
-                if (wrongPTs.indexOf(part.problemType) === -1) {
-                    wrongPTs.push(part.problemType);
+            var partPTs = QuestionEngine.getPartProblemTypes(part);
+            partPTs.forEach(function(pt) {
+                if (allPTs.indexOf(pt) === -1) {
+                    allPTs.push(pt);
                 }
+            });
+            var pr = StudyUI.partResults[part.partLabel];
+            if (pr && !pr.correct) {
+                partPTs.forEach(function(pt) {
+                    if (wrongPTs.indexOf(pt) === -1) {
+                        wrongPTs.push(pt);
+                    }
+                });
             }
         });
         StudyUI._anotherTargetPTs = wrongPTs.length > 0 ? wrongPTs : allPTs;

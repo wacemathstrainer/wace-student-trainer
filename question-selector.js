@@ -98,6 +98,7 @@ var QuestionSelector = {
 
     /**
      * Find all available questions containing a given problem type.
+     * Checks both classifications[] and legacy problemType field.
      * @private
      */
     _findCandidates: function(problemType) {
@@ -116,7 +117,8 @@ var QuestionSelector = {
             // Check if this question contains the target problem type
             var hasPT = false;
             for (var p = 0; p < q.parts.length; p++) {
-                if (q.parts[p].problemType === problemType) {
+                var partPTs = QuestionEngine.getPartProblemTypes(q.parts[p]);
+                if (partPTs.indexOf(problemType) !== -1) {
                     hasPT = true;
                     break;
                 }

@@ -665,19 +665,7 @@ var StudyUI = {
         var solArea = document.getElementById("solution-area");
         if (!solArea) return;
 
-        // Check if any parts have walkthroughs
-        var hasAnyWalkthrough = false;
-        q.parts.forEach(function(p) {
-            if (p.guidedSolution) hasAnyWalkthrough = true;
-        });
-
-        // Outer wrapper for side-by-side layout when walkthroughs exist
-        var html = '';
-        if (hasAnyWalkthrough) {
-            html += '<div class="solution-with-walkthrough">';
-        }
-
-        html += '<div class="solution-container">';
+        var html = '<div class="solution-container">';
         html += '<h3 class="solution-title">Worked Solution</h3>';
 
         // Question-level quick assessment buttons
@@ -816,6 +804,12 @@ var StudyUI = {
 
             html += '</div>'; // .solution-part-main
 
+            // Guided solution panel (hidden, right side)
+            if (part.guidedSolution) {
+                html += '<div class="solution-part-guided" id="sol-guided-' + partIdx +
+                    '" style="display:none;"></div>';
+            }
+
             html += '</div>'; // .solution-part
         });
 
@@ -833,19 +827,6 @@ var StudyUI = {
         html += '</div>';
 
         html += '</div>'; // .solution-container
-
-        // Walkthrough sidebar (outside the solution card, to the right)
-        if (hasAnyWalkthrough) {
-            html += '<div class="walkthrough-sidebar" id="walkthrough-sidebar">';
-            q.parts.forEach(function(part, partIdx) {
-                if (part.guidedSolution) {
-                    html += '<div class="walkthrough-sidebar-part" id="walk-' +
-                        partIdx + '" style="display:none;"></div>';
-                }
-            });
-            html += '</div>';
-            html += '</div>'; // .solution-with-walkthrough
-        }
 
         solArea.innerHTML = html;
         solArea.style.display = "block";
@@ -880,15 +861,6 @@ var StudyUI = {
 
         // Render math in solution
         UI.renderMath(solArea);
-
-        // Auto-show walkthroughs for all parts that have them
-        var hasAnyWalkthrough2 = false;
-        q.parts.forEach(function(part, partIdx) {
-            if (part.guidedSolution) {
-                hasAnyWalkthrough2 = true;
-                StudyUI.showPartGuided(partIdx, true);
-            }
-        });
 
         // Scroll to solution
         solArea.scrollIntoView({ behavior: "smooth" });
@@ -1350,22 +1322,28 @@ var StudyUI = {
 
         if (q.parts) {
             q.parts.forEach(function(p) {
-                if (p.problemType && allPTs.indexOf(p.problemType) === -1) {
-                    allPTs.push(p.problemType);
-                }
+                var partPTs = QuestionEngine.getPartProblemTypes(p);
+                partPTs.forEach(function(pt) {
+                    if (allPTs.indexOf(pt) === -1) {
+                        allPTs.push(pt);
+                    }
+                });
             });
         }
 
         Object.keys(StudyUI.partResults).forEach(function(label) {
             if (!StudyUI.partResults[label].correct) {
                 allCorrect = false;
-                // Find the problem type for this part
+                // Find the problem type(s) for this part
                 if (q.parts) {
                     q.parts.forEach(function(p) {
-                        if (p.partLabel === label && p.problemType) {
-                            if (wrongPTs.indexOf(p.problemType) === -1) {
-                                wrongPTs.push(p.problemType);
-                            }
+                        if (p.partLabel === label) {
+                            var partPTs = QuestionEngine.getPartProblemTypes(p);
+                            partPTs.forEach(function(pt) {
+                                if (wrongPTs.indexOf(pt) === -1) {
+                                    wrongPTs.push(pt);
+                                }
+                            });
                         }
                     });
                 }
@@ -1472,43 +1450,39 @@ var StudyUI = {
     /**
      * Show guided walkthrough for a specific part, adjacent to its worked solution.
      */
-    showPartGuided: function(partIdx, autoShow) {
+    showPartGuided: function(partIdx) {
         var q = StudyUI.currentQuestion;
         if (!q || !q.parts || !q.parts[partIdx]) return;
 
         var part = q.parts[partIdx];
-        var guidedPanel = document.getElementById("walk-" + partIdx);
+        var guidedPanel = document.getElementById("sol-guided-" + partIdx);
         var trigger = document.getElementById("guided-trigger-" + partIdx);
+        var solPart = guidedPanel ? guidedPanel.closest(".solution-part") : null;
 
         if (!guidedPanel || !part.guidedSolution) return;
 
         // Toggle: if already showing, hide it
         if (guidedPanel.style.display !== "none") {
             guidedPanel.style.display = "none";
+            if (solPart) solPart.classList.remove("solution-part-expanded");
             if (trigger) {
                 trigger.querySelector("button").textContent =
                     SYMBOLS.BOOK + " Show walkthrough";
             }
-            // Check if any sidebar panels still visible; if not, hide sidebar
-            var sidebar = document.getElementById("walkthrough-sidebar");
-            if (sidebar) {
-                var anyVisible = sidebar.querySelector(".walkthrough-sidebar-part[style*='display: block']");
-                if (!anyVisible) {
-                    var wrapper = sidebar.closest(".solution-with-walkthrough");
-                    if (wrapper) wrapper.classList.remove("walkthrough-visible");
-                }
-            }
             return;
         }
 
-        // Record guided access (once per question, not on auto-show)
-        if (!autoShow && !StudyUI.guidedAccessedThisQuestion) {
+        // Record guided access (once per question)
+        if (!StudyUI.guidedAccessedThisQuestion) {
             StudyUI.guidedAccessedThisQuestion = true;
             var pts = [];
             q.parts.forEach(function(p) {
-                if (p.problemType && pts.indexOf(p.problemType) === -1) {
-                    pts.push(p.problemType);
-                }
+                var partPTs = QuestionEngine.getPartProblemTypes(p);
+                partPTs.forEach(function(pt) {
+                    if (pts.indexOf(pt) === -1) {
+                        pts.push(pt);
+                    }
+                });
             });
             SessionEngine.recordGuidedAccess(pts);
         }
@@ -1521,15 +1495,9 @@ var StudyUI = {
         html += '<h4 class="guided-panel-title">' + SYMBOLS.BOOK +
             ' Walkthrough \u2014 Part (' + StudyUI._escapeHtml(part.partLabel) + ')</h4>';
 
-        // Split on \\n for line breaks, then also split on Step markers
+        // Split on \\n for line breaks
         var lines = cleanText.split("\\n");
-        var expandedLines = [];
         lines.forEach(function(line) {
-            // Split lines that contain "Step N:" mid-text into separate lines
-            var parts = line.split(/(?=\*\*Step\s+\d)/);
-            parts.forEach(function(p) { expandedLines.push(p); });
-        });
-        expandedLines.forEach(function(line) {
             line = line.trim();
             if (line === "" || line === "---") {
                 html += '<br>';
@@ -1543,13 +1511,7 @@ var StudyUI = {
         guidedPanel.innerHTML = html;
         guidedPanel.style.display = "block";
 
-        // Mark wrapper as having visible walkthrough
-        var sidebar = document.getElementById("walkthrough-sidebar");
-        if (sidebar) {
-            var wrapper = sidebar.closest(".solution-with-walkthrough");
-            if (wrapper) wrapper.classList.add("walkthrough-visible");
-        }
-
+        if (solPart) solPart.classList.add("solution-part-expanded");
         if (trigger) {
             trigger.querySelector("button").textContent =
                 SYMBOLS.BOOK + " Hide walkthrough";
@@ -1567,7 +1529,7 @@ var StudyUI = {
 
         q.parts.forEach(function(part, partIdx) {
             if (part.guidedSolution) {
-                var panel = document.getElementById("walk-" + partIdx);
+                var panel = document.getElementById("sol-guided-" + partIdx);
                 if (panel && panel.style.display === "none") {
                     StudyUI.showPartGuided(partIdx);
                 }
@@ -1774,7 +1736,11 @@ var StudyUI = {
      * @private
      */
     _isDrawOnPart: function(part, q) {
-        if (!part || !part.questionText) return false;
+        if (!part) return false;
+        // Check formOfQuestion field (new data format)
+        if (part.formOfQuestion === "draw-on" || part.formOfQuestion === "fill-table") return true;
+        // Legacy heuristic: check questionText for keywords
+        if (!part.questionText) return false;
         var hasKeyword = /sketch|draw|on the axes|on the graph|shade|complete the table|fill in.*table|complete the following table/i
             .test(part.questionText);
         if (!hasKeyword) return false;

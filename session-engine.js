@@ -315,6 +315,10 @@ var SessionEngine = {
             if (!pt) return;
 
             ptEncountered[pt] = true;
+            // Also track all problem types from classifications
+            var allPartPTs = QuestionEngine.getPartProblemTypes(part);
+            allPartPTs.forEach(function(apt) { ptEncountered[apt] = true; });
+
             SessionEngine.sessionData.partsAttempted++;
 
             var pr = partResults[label];
@@ -324,40 +328,50 @@ var SessionEngine = {
                 SessionEngine.sessionData.partsCorrect++;
             }
 
-            // Track topic breakdown
-            var topic = part.topic || "Unknown";
-            if (!SessionEngine.sessionData.topicBreakdown[topic]) {
-                SessionEngine.sessionData.topicBreakdown[topic] = { attempted: 0, correct: 0 };
-            }
-            SessionEngine.sessionData.topicBreakdown[topic].attempted++;
-            if (pr.correct) {
-                SessionEngine.sessionData.topicBreakdown[topic].correct++;
-            }
-
-            var masteryPromise = MasteryEngine.recordAttempt(pt, pr.correct, {
-                questionFilename: filename,
-                partLabel: label,
-                errorAtLine: pr.errorAtLine || null,
-                markingCriteriaFailed: pr.markingCriteriaFailed || []
-            }).then(function(record) {
-                // Check for new mastery
-                if (record.status === "mastered") {
-                    if (SessionEngine.newMasteries.indexOf(pt) === -1) {
-                        SessionEngine.newMasteries.push(pt);
-                    }
+            // Track topic breakdown — iterate classifications for multi-topic parts
+            var classifications = QuestionEngine.getPartClassifications(part);
+            var trackedTopics = {};
+            classifications.forEach(function(cls) {
+                var topic = cls.topic || "Unknown";
+                if (trackedTopics[topic]) return; // don't double-count per part
+                trackedTopics[topic] = true;
+                if (!SessionEngine.sessionData.topicBreakdown[topic]) {
+                    SessionEngine.sessionData.topicBreakdown[topic] = { attempted: 0, correct: 0 };
                 }
-
-                // Update the session lists based on new status
-                SessionEngine._updateLists(pt, record.status);
-
-                // Handle confidence watch
-                if (pr.correctButUnsure) {
-                    MasteryEngine.addToConfidenceWatch(pt);
-                } else if (pr.correct) {
-                    MasteryEngine.recordConfidentCorrect(pt);
+                SessionEngine.sessionData.topicBreakdown[topic].attempted++;
+                if (pr.correct) {
+                    SessionEngine.sessionData.topicBreakdown[topic].correct++;
                 }
             });
-            promises.push(masteryPromise);
+
+            // Record mastery for all problem types in this part's classifications
+            var allPartPTs = QuestionEngine.getPartProblemTypes(part);
+            allPartPTs.forEach(function(mpt) {
+                var masteryPromise = MasteryEngine.recordAttempt(mpt, pr.correct, {
+                    questionFilename: filename,
+                    partLabel: label,
+                    errorAtLine: pr.errorAtLine || null,
+                    markingCriteriaFailed: pr.markingCriteriaFailed || []
+                }).then(function(record) {
+                    // Check for new mastery
+                    if (record.status === "mastered") {
+                        if (SessionEngine.newMasteries.indexOf(mpt) === -1) {
+                            SessionEngine.newMasteries.push(mpt);
+                        }
+                    }
+
+                    // Update the session lists based on new status
+                    SessionEngine._updateLists(mpt, record.status);
+
+                    // Handle confidence watch
+                    if (pr.correctButUnsure) {
+                        MasteryEngine.addToConfidenceWatch(mpt);
+                    } else if (pr.correct) {
+                        MasteryEngine.recordConfidentCorrect(mpt);
+                    }
+                });
+                promises.push(masteryPromise);
+            });
         });
 
         // Track encountered problem types
@@ -454,19 +468,35 @@ var SessionEngine = {
     _applyTopicFilter: function(topicFilter) {
         // Get all problem types that match the topic filter
         // (matches against topic, subtopic, conceptCategory, or problemType name)
+        // Now checks classifications[] for multi-classified parts
         var matchingPTs = {};
         var keys = Object.keys(QuestionEngine.allQuestions);
         keys.forEach(function(k) {
             var q = QuestionEngine.allQuestions[k];
             if (!q.parts) return;
             q.parts.forEach(function(part) {
+                var classifications = QuestionEngine.getPartClassifications(part);
+                var matched = false;
+                classifications.forEach(function(cls) {
+                    if (cls.topic === topicFilter ||
+                        cls.subtopic === topicFilter ||
+                        cls.conceptCategory === topicFilter ||
+                        cls.problemType === topicFilter) {
+                        matched = true;
+                    }
+                });
+                // Also check legacy fields directly
                 if (part.topic === topicFilter ||
                     part.subtopic === topicFilter ||
                     part.conceptCategory === topicFilter ||
                     part.problemType === topicFilter) {
-                    if (part.problemType) {
-                        matchingPTs[part.problemType] = true;
-                    }
+                    matched = true;
+                }
+                if (matched) {
+                    var partPTs = QuestionEngine.getPartProblemTypes(part);
+                    partPTs.forEach(function(pt) {
+                        matchingPTs[pt] = true;
+                    });
                 }
             });
         });

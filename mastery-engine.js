@@ -63,13 +63,22 @@ var MasteryEngine = {
                 var qDiff = diffMap[q.difficultyRating] || 1.0;
                 if (!q.parts) return;
                 q.parts.forEach(function(p) {
-                    if (!p.problemType) return;
-                    // Track highest difficulty
-                    if (!ptDiffWeight[p.problemType] || qDiff > ptDiffWeight[p.problemType]) {
-                        ptDiffWeight[p.problemType] = qDiff;
-                    }
-                    // Track topic (first found)
-                    if (!ptTopic[p.problemType] && p.topic) {
+                    var partPTs = QuestionEngine.getPartProblemTypes(p);
+                    partPTs.forEach(function(pt) {
+                        // Track highest difficulty
+                        if (!ptDiffWeight[pt] || qDiff > ptDiffWeight[pt]) {
+                            ptDiffWeight[pt] = qDiff;
+                        }
+                    });
+                    // Track topic from classifications (first found)
+                    var classifications = QuestionEngine.getPartClassifications(p);
+                    classifications.forEach(function(cls) {
+                        if (cls.problemType && cls.topic && !ptTopic[cls.problemType]) {
+                            ptTopic[cls.problemType] = cls.topic;
+                        }
+                    });
+                    // Legacy fallback
+                    if (p.problemType && p.topic && !ptTopic[p.problemType]) {
                         ptTopic[p.problemType] = p.topic;
                     }
                 });
