@@ -158,6 +158,25 @@ var FirebaseSync = {
     },
 
     /**
+     * Save an API cost record to Firestore.
+     * Called by CostTracker after each Claude API call.
+     */
+    saveApiCost: function(entry) {
+        if (!FirebaseSync.enabled || !FirebaseSync.studentId) return;
+
+        var costsRef = FirebaseSync.db
+            .collection("students")
+            .doc(FirebaseSync.studentId)
+            .collection("apiCosts");
+
+        costsRef.add(Object.assign({}, entry, {
+            syncedAt: firebase.firestore.FieldValue.serverTimestamp()
+        })).catch(function(err) {
+            console.warn("FirebaseSync: Failed to sync API cost:", err.message);
+        });
+    },
+
+    /**
      * Pull all student data from Firestore and merge into IndexedDB.
      * Cloud data wins on conflicts (newer timestamp).
      * @private

@@ -851,6 +851,37 @@ body.dark-theme #welcome-screen {
     margin-bottom: var(--space-lg);
 }
 
+/* Remediation question (from wrong/struggling list) */
+.question-card-remediation {
+    border-color: #5b9bd5;
+    border-width: 2px;
+    box-shadow: 0 0 0 1px #d6e6f5, var(--shadow-sm);
+}
+
+.remediation-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: #e8f0fa;
+    color: #2a6496;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-md);
+}
+
+/* Dark mode overrides for remediation */
+[data-theme="dark"] .question-card-remediation {
+    border-color: #4a8cc7;
+    box-shadow: 0 0 0 1px rgba(74,140,199,0.2), var(--shadow-sm);
+}
+
+[data-theme="dark"] .remediation-banner {
+    background: rgba(74,140,199,0.15);
+    color: #7bb8e0;
+}
+
 .question-header {
     display: flex;
     align-items: center;

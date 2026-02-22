@@ -123,7 +123,7 @@ var SessionEngine = {
         if (!SessionEngine.active) return Promise.resolve(null);
 
         var targetPT = null;
-        var sourceList = "other"; // Track which list this came from
+        var sourceList = "other";
 
         if (SessionEngine.wrongListOnly) {
             // ----- WRONG LIST ONLY MODE -----
@@ -158,28 +158,28 @@ var SessionEngine = {
             }
         }
 
-        // If no target found from any list, session is done
-        if (!targetPT) {
-            return Promise.resolve(null);
-        }
-
-        // Detect source list if not already set to "wrong"
-        if (sourceList !== "wrong") {
+        // Determine sourceList for non-wrong picks
+        if (sourceList !== "wrong" && targetPT) {
             var lists = [
-                { name: "fresh", list: SessionEngine.freshList },
-                { name: "improving", list: SessionEngine.improvingList },
-                { name: "review", list: SessionEngine.reviewList },
-                { name: "confidence", list: SessionEngine.confidenceList }
+                { name: "fresh", arr: SessionEngine.freshList },
+                { name: "improving", arr: SessionEngine.improvingList },
+                { name: "review", arr: SessionEngine.reviewList },
+                { name: "confidence", arr: SessionEngine.confidenceList }
             ];
             for (var li = 0; li < lists.length; li++) {
-                for (var lj = 0; lj < lists[li].list.length; lj++) {
-                    if (lists[li].list[lj].problemType === targetPT) {
+                for (var lj = 0; lj < lists[li].arr.length; lj++) {
+                    if (lists[li].arr[lj].problemType === targetPT) {
                         sourceList = lists[li].name;
                         break;
                     }
                 }
                 if (sourceList !== "other") break;
             }
+        }
+
+        // If no target found from any list, session is done
+        if (!targetPT) {
+            return Promise.resolve(null);
         }
 
         // Get retry count for difficulty progression

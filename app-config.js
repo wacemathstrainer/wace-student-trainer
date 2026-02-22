@@ -42,7 +42,7 @@ var SYMBOLS = {
 // ---- APP CONSTANTS ----
 var APP_VERSION = "2.0.0";
 var DB_NAME = "WACEStudentTrainer";
-var DB_VERSION = 1;
+var DB_VERSION = 2;
 
 // Base path for all data files (relative to the HTML file).
 // In the restructured project, all files are flat in system_trainer/.
@@ -69,7 +69,8 @@ var OBJECT_STORES = [
     { name: STORE_IMPORTED,         keyPath: "filename" },
     { name: STORE_SCHEDULE_UPDATES, keyPath: "updateId" },
     { name: STORE_CONFIDENCE,       keyPath: "problemType" },
-    { name: STORE_DIAGRAMS,         keyPath: "filename" }
+    { name: STORE_DIAGRAMS,         keyPath: "filename" },
+    { name: "apiCosts",             keyPath: "id" }
 ];
 
 
