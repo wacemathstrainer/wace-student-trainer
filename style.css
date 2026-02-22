@@ -1069,12 +1069,20 @@ body.dark-theme #welcome-screen {
 }
 
 .solution-part.solution-part-expanded .solution-part-main {
-    flex: 0 0 55%;
+    flex: 1 1 0;
 }
 
 .solution-part-guided {
-    flex: 0 0 42%;
+    flex: 1 1 0;
     min-width: 0;
+}
+
+/* Widen solution container when walkthroughs are active */
+.solution-container.walkthrough-active {
+    max-width: none;
+    margin-left: calc(-1 * var(--space-lg));
+    margin-right: calc(-1 * var(--space-lg));
+    width: calc(100% + 2 * var(--space-lg));
 }
 
 @media (max-width: 768px) {
@@ -1086,6 +1094,11 @@ body.dark-theme #welcome-screen {
     }
     .solution-part-guided {
         flex: 1;
+    }
+    .solution-container.walkthrough-active {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
     }
 }
 

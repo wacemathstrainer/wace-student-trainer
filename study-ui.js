@@ -862,6 +862,21 @@ var StudyUI = {
         // Render math in solution
         UI.renderMath(solArea);
 
+        // Auto-show walkthroughs for all parts that have them
+        var hasAnyWalkthrough = false;
+        q.parts.forEach(function(part, partIdx) {
+            if (part.guidedSolution) {
+                hasAnyWalkthrough = true;
+                StudyUI.showPartGuided(partIdx, true);
+            }
+        });
+
+        // Widen container if walkthroughs are active
+        if (hasAnyWalkthrough) {
+            var solContainer = solArea.querySelector(".solution-container");
+            if (solContainer) solContainer.classList.add("walkthrough-active");
+        }
+
         // Scroll to solution
         solArea.scrollIntoView({ behavior: "smooth" });
     },
@@ -1444,7 +1459,7 @@ var StudyUI = {
     /**
      * Show guided walkthrough for a specific part, adjacent to its worked solution.
      */
-    showPartGuided: function(partIdx) {
+    showPartGuided: function(partIdx, autoShow) {
         var q = StudyUI.currentQuestion;
         if (!q || !q.parts || !q.parts[partIdx]) return;
 
@@ -1463,11 +1478,17 @@ var StudyUI = {
                 trigger.querySelector("button").textContent =
                     SYMBOLS.BOOK + " Show walkthrough";
             }
+            // Check if any walkthroughs still visible; if not, remove wide class
+            var solContainer = guidedPanel.closest(".solution-container");
+            if (solContainer) {
+                var anyVisible = solContainer.querySelector(".solution-part-guided[style*='display: block']");
+                if (!anyVisible) solContainer.classList.remove("walkthrough-active");
+            }
             return;
         }
 
-        // Record guided access (once per question)
-        if (!StudyUI.guidedAccessedThisQuestion) {
+        // Record guided access (once per question, not on auto-show)
+        if (!autoShow && !StudyUI.guidedAccessedThisQuestion) {
             StudyUI.guidedAccessedThisQuestion = true;
             var pts = [];
             q.parts.forEach(function(p) {
@@ -1507,6 +1528,10 @@ var StudyUI = {
             trigger.querySelector("button").textContent =
                 SYMBOLS.BOOK + " Hide walkthrough";
         }
+
+        // Ensure container is widened
+        var solContainer = guidedPanel.closest(".solution-container");
+        if (solContainer) solContainer.classList.add("walkthrough-active");
 
         UI.renderMath(guidedPanel);
     },

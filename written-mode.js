@@ -756,6 +756,11 @@ var WrittenMode = {
         .then(function(data) {
             if (overlay) overlay.classList.add("wm-hidden");
 
+            // Track token usage and cost per student
+            if (data.usage && typeof CostTracker !== "undefined") {
+                CostTracker.record(data.usage, "study-marking");
+            }
+
             var text = "";
             if (data.content) {
                 data.content.forEach(function(block) {
@@ -1090,6 +1095,23 @@ var WrittenMode = {
 
         // Render MathJax
         UI.renderMath(container);
+
+        // Auto-show walkthroughs for all parts that have them
+        var q = StudyUI.currentQuestion;
+        if (q && q.parts) {
+            var hasAnyWalkthrough = false;
+            q.parts.forEach(function(part, idx) {
+                if (part.guidedSolution) {
+                    hasAnyWalkthrough = true;
+                    StudyUI.showPartGuided(idx, true);
+                }
+            });
+            if (hasAnyWalkthrough) {
+                var solContainer = container.querySelector(".solution-container");
+                if (!solContainer) solContainer = container;
+                solContainer.classList.add("walkthrough-active");
+            }
+        }
 
         // Scroll to results
         container.scrollIntoView({ behavior: "smooth" });
