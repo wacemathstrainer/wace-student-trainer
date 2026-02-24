@@ -63,22 +63,13 @@ var MasteryEngine = {
                 var qDiff = diffMap[q.difficultyRating] || 1.0;
                 if (!q.parts) return;
                 q.parts.forEach(function(p) {
-                    var partPTs = QuestionEngine.getPartProblemTypes(p);
-                    partPTs.forEach(function(pt) {
-                        // Track highest difficulty
-                        if (!ptDiffWeight[pt] || qDiff > ptDiffWeight[pt]) {
-                            ptDiffWeight[pt] = qDiff;
-                        }
-                    });
-                    // Track topic from classifications (first found)
-                    var classifications = QuestionEngine.getPartClassifications(p);
-                    classifications.forEach(function(cls) {
-                        if (cls.problemType && cls.topic && !ptTopic[cls.problemType]) {
-                            ptTopic[cls.problemType] = cls.topic;
-                        }
-                    });
-                    // Legacy fallback
-                    if (p.problemType && p.topic && !ptTopic[p.problemType]) {
+                    if (!p.problemType) return;
+                    // Track highest difficulty
+                    if (!ptDiffWeight[p.problemType] || qDiff > ptDiffWeight[p.problemType]) {
+                        ptDiffWeight[p.problemType] = qDiff;
+                    }
+                    // Track topic (first found)
+                    if (!ptTopic[p.problemType] && p.topic) {
                         ptTopic[p.problemType] = p.topic;
                     }
                 });
@@ -298,6 +289,10 @@ var MasteryEngine = {
             }
 
             return DB.put(STORE_MASTERY, record).then(function() {
+                // Sync to cloud
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveMastery) {
+                    FirebaseSync.saveMastery(record.problemType, record);
+                }
                 return record;
             });
         });
@@ -310,7 +305,12 @@ var MasteryEngine = {
         return MasteryEngine.getStatus(problemType).then(function(record) {
             record.guidedSolutionAccessCount =
                 (record.guidedSolutionAccessCount || 0) + 1;
-            return DB.put(STORE_MASTERY, record);
+            return DB.put(STORE_MASTERY, record).then(function() {
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveMastery) {
+                    FirebaseSync.saveMastery(record.problemType, record);
+                }
+                return record;
+            });
         });
     },
 
@@ -328,6 +328,9 @@ var MasteryEngine = {
                 confidentCorrectSessions: []
             };
             return DB.put(STORE_CONFIDENCE, entry).then(function() {
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveConfidence) {
+                    FirebaseSync.saveConfidence(problemType, entry);
+                }
                 return entry;
             });
         });
@@ -353,6 +356,9 @@ var MasteryEngine = {
                 });
             }
             return DB.put(STORE_CONFIDENCE, entry).then(function() {
+                if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveConfidence) {
+                    FirebaseSync.saveConfidence(problemType, entry);
+                }
                 return entry;
             });
         });
@@ -409,6 +415,9 @@ var MasteryEngine = {
                             if (daysDiff > 30) {
                                 r.status = "review";
                                 DB.put(STORE_MASTERY, r); // async update
+                                if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveMastery) {
+                                    FirebaseSync.saveMastery(r.problemType, r);
+                                }
                                 result.reviewList.push(r);
                             }
                         }

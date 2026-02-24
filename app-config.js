@@ -44,6 +44,15 @@ var APP_VERSION = "2.0.0";
 var DB_NAME = "WACEStudentTrainer";
 var DB_VERSION = 2;
 
+// ---- MULTI-COURSE CONFIG ----
+// Teacher password (moved from schedule.js so it is available before dynamic load).
+var TEACHER_DASHBOARD_PASSWORD = "MrMorris2026";
+
+// Courses available in this deployment.
+// Each entry needs a matching {name}_data_bundle.js and {name}_schedule.js file.
+var AVAILABLE_COURSES = ["12Methods", "11Methods"];
+var DEFAULT_COURSE = "12Methods";
+
 // Base path for all data files (relative to the HTML file).
 // In the restructured project, all files are flat in system_trainer/.
 var DATA_PATH = "";

@@ -20,7 +20,7 @@ var QuestionEngine = {
             console.log("QuestionEngine: Loaded " +
                 Object.keys(QUESTIONS_DATA).length + " questions from data bundle");
         } else {
-            console.warn("QuestionEngine: QUESTIONS_DATA not found (data_bundle.js missing?)");
+            console.warn("QuestionEngine: QUESTIONS_DATA not found (course data bundle not loaded?)");
             QuestionEngine.allQuestions = {};
         }
 
@@ -118,7 +118,6 @@ var QuestionEngine = {
 
     /**
      * Check if a question is available (all its parts' problem types are unlocked).
-     * Multi-classification: ALL classifications on every part must be taught.
      */
     isQuestionAvailable: function(questionData) {
         if (!questionData || !questionData.parts) return false;
@@ -129,72 +128,12 @@ var QuestionEngine = {
             unlockedSet[pt] = true;
         });
         for (var i = 0; i < questionData.parts.length; i++) {
-            if (!QuestionEngine.isPartUnlocked(questionData.parts[i], unlockedSet)) {
+            var pt = questionData.parts[i].problemType;
+            if (pt && !unlockedSet[pt]) {
                 return false;
             }
         }
         return true;
-    },
-
-    /**
-     * Check if a single part is unlocked.
-     * Multi-classification: ALL classifications must be taught.
-     * @param {Object} part
-     * @param {Object} unlockedSet - map of problemType -> true
-     * @returns {boolean}
-     */
-    isPartUnlocked: function(part, unlockedSet) {
-        if (part.classifications && part.classifications.length > 0) {
-            return part.classifications.every(function(cls) {
-                return !cls.problemType || unlockedSet[cls.problemType];
-            });
-        }
-        // Legacy fallback: single problemType field
-        return !part.problemType || !!unlockedSet[part.problemType];
-    },
-
-    /**
-     * Get all problem types for a part (including from classifications array).
-     * Returns a deduplicated array.
-     * @param {Object} part
-     * @returns {string[]}
-     */
-    getPartProblemTypes: function(part) {
-        var pts = [];
-        if (part.classifications && part.classifications.length > 0) {
-            part.classifications.forEach(function(cls) {
-                if (cls.problemType && pts.indexOf(cls.problemType) === -1) {
-                    pts.push(cls.problemType);
-                }
-            });
-        }
-        // Always include the legacy field if present and not already listed
-        if (part.problemType && pts.indexOf(part.problemType) === -1) {
-            pts.push(part.problemType);
-        }
-        return pts;
-    },
-
-    /**
-     * Get all taxonomy info for a part (topic/subtopic/concept/problemType tuples).
-     * Returns classifications[] if present, otherwise a single-entry array from legacy fields.
-     * @param {Object} part
-     * @returns {Array<{topic, subtopic, conceptCategory, problemType}>}
-     */
-    getPartClassifications: function(part) {
-        if (part.classifications && part.classifications.length > 0) {
-            return part.classifications;
-        }
-        // Legacy fallback
-        if (part.problemType) {
-            return [{
-                topic: part.topic || "",
-                subtopic: part.subtopic || "",
-                conceptCategory: part.conceptCategory || "",
-                problemType: part.problemType
-            }];
-        }
-        return [];
     },
 
     /**
@@ -214,7 +153,6 @@ var QuestionEngine = {
 
     /**
      * Get questions for a specific problem type.
-     * Checks both classifications[] and legacy problemType field.
      */
     getQuestionsForProblemType: function(problemType) {
         var matching = {};
@@ -223,8 +161,7 @@ var QuestionEngine = {
             var q = QuestionEngine.allQuestions[keys[i]];
             if (!q.parts) continue;
             for (var p = 0; p < q.parts.length; p++) {
-                var partPTs = QuestionEngine.getPartProblemTypes(q.parts[p]);
-                if (partPTs.indexOf(problemType) !== -1) {
+                if (q.parts[p].problemType === problemType) {
                     matching[keys[i]] = q;
                     break;
                 }
@@ -307,8 +244,6 @@ var QuestionEngine = {
                         _parentLabel: part.partLabel,
                         _parentStimulus: part.stimulus || "",
                         _parentMarks: part.partMarks,
-                        // Multi-classification support
-                        classifications: sp.classifications || part.classifications || null,
                         topic: sp.topic || part.topic || qTopic,
                         subtopic: sp.subtopic || part.subtopic || qSubtopic,
                         conceptCategory: sp.conceptCategory || part.conceptCategory || qConcept,
@@ -325,7 +260,6 @@ var QuestionEngine = {
 
     /**
      * Extract all unique problem types from all loaded questions.
-     * Includes problem types from classifications[] arrays.
      * @private
      */
     _extractAllProblemTypes: function() {
@@ -335,10 +269,9 @@ var QuestionEngine = {
             var q = QuestionEngine.allQuestions[k];
             if (q.parts) {
                 q.parts.forEach(function(part) {
-                    var partPTs = QuestionEngine.getPartProblemTypes(part);
-                    partPTs.forEach(function(pt) {
-                        ptSet[pt] = true;
-                    });
+                    if (part.problemType) {
+                        ptSet[part.problemType] = true;
+                    }
                 });
             }
         });

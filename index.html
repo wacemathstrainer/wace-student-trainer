@@ -742,11 +742,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="firebase-sync.js"></script>
-    <script src="access-codes.js"></script>
-    <script src="data_bundle.js"></script>
-    <script src="schedule.js"></script>
-    <!-- App modules (split from app.js) -->
+    <!-- App config loads before access-codes (provides TEACHER_DASHBOARD_PASSWORD, AVAILABLE_COURSES) -->
     <script src="app-config.js"></script>
+    <script src="access-codes.js"></script>
+    <!-- data_bundle.js and schedule.js are now loaded DYNAMICALLY per-course -->
+    <!-- (see app-init.js loadCourseScripts) -->
+    <!-- App modules (split from app.js) -->
     <script src="db.js"></script>
     <script src="cost-tracker.js"></script>
     <script src="question-engine.js"></script>

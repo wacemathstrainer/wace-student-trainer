@@ -537,6 +537,11 @@ var ExamMode = {
             return resp.json();
         })
         .then(function(data) {
+            // Track token usage and cost per student
+            if (data.usage && typeof CostTracker !== "undefined") {
+                CostTracker.record(data.usage, "exam-marking");
+            }
+
             var text = "";
             if (data.content) {
                 data.content.forEach(function(block) {
@@ -1363,6 +1368,11 @@ var UI = {
         DB.put(STORE_CONFIG, config).then(function() {
             console.log("Config saved for: " + name);
 
+            // Sync profile to cloud
+            if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveProfile) {
+                FirebaseSync.saveProfile(config);
+            }
+
             // Complete access code claim if applicable
             if (typeof AccessControl !== "undefined" &&
                 typeof AccessControl.completeClaim === "function") {
@@ -1632,7 +1642,11 @@ var UI = {
         DB.get(STORE_CONFIG, "main").then(function(config) {
             if (config) {
                 config[key] = value;
-                return DB.put(STORE_CONFIG, config);
+                return DB.put(STORE_CONFIG, config).then(function() {
+                    if (typeof FirebaseSync !== "undefined" && FirebaseSync.saveProfile) {
+                        FirebaseSync.saveProfile(config);
+                    }
+                });
             }
         }).then(function() {
             console.log("Preference saved: " + key + " = " + value);
