@@ -1,12 +1,21 @@
 // Global reason library for the misconception picker
 var ATOMISED_REASONS = [
+  // General
   { id: "wrong_rule", label: "I used the wrong method/rule" },
-  { id: "missing_chain_factor", label: "I forgot a chain rule factor" },
   { id: "setup_error", label: "I set it up incorrectly" },
   { id: "substitution_error", label: "Method OK but substituted/evaluated wrong" },
   { id: "sign_error", label: "I made a sign error (+/−)" },
   { id: "interpretation_mixup", label: "I misread what was being asked" },
   { id: "algebra_slip", label: "Algebraic simplification error" },
+  // Calculus-specific
+  { id: "missing_chain_factor", label: "I forgot a chain rule factor" },
+  // Probability-specific
+  { id: "wrong_model", label: "I used the wrong distribution (e.g. Binomial vs Geometric)" },
+  { id: "wrong_event", label: "Wrong event (≥ vs >, complement error)" },
+  { id: "wrong_parameters", label: "I used the wrong parameters (n/p/k/μ/σ)" },
+  { id: "probability_sum_error", label: "Forgot probabilities must sum to 1" },
+  { id: "conditional_setup_error", label: "Set up conditional probability incorrectly" },
+  // Catch-all
   { id: "not_sure", label: "Not sure / other" },
 ];
 

@@ -9,13 +9,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Determining parameter of PDF using area condition",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "setup_error",
+          "substitution_error",
+          "algebra_slip",
+          "interpretation_mixup",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -34,13 +34,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating $E(aX + b)$ using linearity of expectation",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "sign_error",
+          "substitution_error",
+          "algebra_slip",
+          "interpretation_mixup",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -169,13 +169,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Determining equation of pdf from graph and integrating to find probability",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "setup_error",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "setup_error",
+          "substitution_error",
+          "algebra_slip",
+          "interpretation_mixup",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -219,13 +219,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating probability for uniform distribution",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "setup_error",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "setup_error",
+          "substitution_error",
+          "wrong_event",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -244,13 +244,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Sketching probability density function of uniform distribution",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "setup_error",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "setup_error",
+          "interpretation_mixup",
+          "wrong_rule",
+          "substitution_error",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -269,13 +269,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating $\\text{Var}(aX + b)$ using variance properties",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "sign_error",
+          "substitution_error",
+          "algebra_slip",
+          "interpretation_mixup",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -294,13 +294,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating standard deviation of continuous random variable using variance formula",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "substitution_error",
+          "algebra_slip",
+          "setup_error",
+          "interpretation_mixup",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -344,13 +344,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Comparing probabilities from two different distributions to answer contextual question",
       "testing": "",
       "reason_bank": [
-        "setup_error",
-        "wrong_rule",
-        "substitution_error",
-        "interpretation_mixup",
-        "sign_error",
-        "not_sure"
-      ],
+          "setup_error",
+          "wrong_rule",
+          "substitution_error",
+          "interpretation_mixup",
+          "wrong_event",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -369,13 +369,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Determining $\\mu$ and $\\sigma$ from two given probabilities using simultaneous equations",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "setup_error",
+          "substitution_error",
+          "algebra_slip",
+          "wrong_parameters",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -394,13 +394,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Finding standard deviation given target probability and mean using inverse normal",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "setup_error",
+          "substitution_error",
+          "wrong_event",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -419,13 +419,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Finding value for specified probability using inverse normal",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "wrong_event",
+          "substitution_error",
+          "setup_error",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -444,13 +444,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating conditional probability for normal distribution using restricted domain",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "conditional_setup_error",
+          "wrong_event",
+          "substitution_error",
+          "wrong_rule",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -469,13 +469,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating normal probability $P(X > k)$ or $P(X < k)$",
       "testing": "",
       "reason_bank": [
-        "setup_error",
-        "wrong_rule",
-        "substitution_error",
-        "interpretation_mixup",
-        "sign_error",
-        "not_sure"
-      ],
+          "setup_error",
+          "wrong_rule",
+          "substitution_error",
+          "interpretation_mixup",
+          "wrong_event",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -499,13 +499,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating normal probability $P(a < X < b)$",
       "testing": "",
       "reason_bank": [
-        "setup_error",
-        "wrong_rule",
-        "substitution_error",
-        "interpretation_mixup",
-        "sign_error",
-        "not_sure"
-      ],
+          "setup_error",
+          "wrong_rule",
+          "substitution_error",
+          "interpretation_mixup",
+          "wrong_event",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -524,13 +524,13 @@ var ATOMISED_CRV_NORMAL = {
       "pt": "Calculating percentage using empirical rule (68-95-99.7) for normal distribution",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "wrong_event",
+          "substitution_error",
+          "interpretation_mixup",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {

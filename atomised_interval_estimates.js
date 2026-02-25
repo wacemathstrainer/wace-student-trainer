@@ -134,13 +134,13 @@ var ATOMISED_INTERVAL_ESTIMATES = {
       "pt": "Making inference from CI about claimed/target value",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "setup_error",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "setup_error",
+          "substitution_error",
+          "interpretation_mixup",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -239,13 +239,13 @@ var ATOMISED_INTERVAL_ESTIMATES = {
       "pt": "Using calculus to show maximum margin of error occurs at $\\hat{p} = 0.5$",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "sign_error",
+          "substitution_error",
+          "algebra_slip",
+          "setup_error",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -394,13 +394,13 @@ var ATOMISED_INTERVAL_ESTIMATES = {
       "pt": "Stating condition for normal approximation to sample proportion",
       "testing": "",
       "reason_bank": [
-        "setup_error",
-        "wrong_rule",
-        "substitution_error",
-        "interpretation_mixup",
-        "sign_error",
-        "not_sure"
-      ],
+          "setup_error",
+          "wrong_rule",
+          "substitution_error",
+          "interpretation_mixup",
+          "wrong_parameters",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {
@@ -419,13 +419,13 @@ var ATOMISED_INTERVAL_ESTIMATES = {
       "pt": "Using approximate normality of sample proportion distribution to calculate probability",
       "testing": "",
       "reason_bank": [
-        "wrong_rule",
-        "missing_chain_factor",
-        "substitution_error",
-        "sign_error",
-        "algebra_slip",
-        "not_sure"
-      ],
+          "wrong_rule",
+          "wrong_event",
+          "substitution_error",
+          "wrong_parameters",
+          "algebra_slip",
+          "not_sure"
+        ],
       "easy": [],
       "medium": [
         {

@@ -42,7 +42,7 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         {
           "qid": "FD_001_m02",
           "q": "Find the point on $y = e^{2x} - 5x$ where the gradient equals $3$.",
-          "a": "$y' = 2 e^{2 x} - 5 = 3 \\Rightarrow e^{2x} = 4 \\Rightarrow x = \\log{\\left(2 \\right)}$. $y = 4 - \\log{\\left(32 \\right)}$. Point: $(\\log{\\left(2 \\right)}, 4 - \\log{\\left(32 \\right)})$"
+          "a": "$y' = 2 e^{2 x} - 5 = 3 \\Rightarrow e^{2x} = 4 \\Rightarrow x = \\ln{\\left(2 \\right)}$. $y = 4 - \\ln{\\left(32 \\right)}$. Point: $(\\ln{\\left(2 \\right)}, 4 - \\ln{\\left(32 \\right)})$"
         },
         {
           "qid": "FD_001_m03",
@@ -427,7 +427,7 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         {
           "qid": "FD_005_h04",
           "q": "Differentiate $y = \\frac{\\ln x}{x^2}$.",
-          "a": "$\\frac{1 - 2 \\log{\\left(x \\right)}}{x^{3}}$"
+          "a": "$\\frac{1 - 2 \\ln{\\left(x \\right)}}{x^{3}}$"
         },
         {
           "qid": "FD_005_h05",
@@ -1791,8 +1791,8 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         },
         {
           "qid": "FD_021_m04",
-          "q": "Given $N(t) = 800e^{-0.04t}$, find the rate of decay at $t = 0$ and $t = 10$. Is the rate of decay increasing or decreasing?",
-          "a": "$N'(t) = -32e^{-0.04t}$. $N'(0) = -32$. $N'(10) = -32e^{-0.4} \\approx -21.45$. The magnitude of decay decreases (rate slows down)."
+          "q": "Given $N(t) = 800e^{-0.04t}$, find $N'(t)$ at $t = 0$ and $t = 10$. Is the quantity decreasing faster or slower over time?",
+          "a": "$N'(t) = -32e^{-0.04t}$. $N'(0) = -32$. $N'(10) = -32e^{-0.4} \\approx -21.45$. Since $|N'(10)| < |N'(0)|$, the quantity is decreasing more slowly over time."
         },
         {
           "qid": "FD_021_m05",
@@ -1813,7 +1813,7 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         },
         {
           "qid": "FD_021_h03",
-          "q": "The mass of a substance is $M(t) = 250e^{-0.06t}$ grams. Find $t$ when the rate of decay is $5$ grams per year.",
+          "q": "The mass of a substance is $M(t) = 250e^{-0.06t}$ grams. Find $t$ when the mass is decreasing at a rate of $5$ grams per year.",
           "a": "$M'(t) = -15e^{-0.06t}$. Set $|M'(t)| = 5$: $15e^{-0.06t} = 5 \\Rightarrow e^{-0.06t} = \\frac{1}{3} \\Rightarrow t = \\frac{\\ln 3}{0.06} \\approx 18.31$ years."
         },
         {
@@ -1910,7 +1910,7 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         },
         {
           "qid": "FD_022_h05",
-          "q": "Given $N(t) = 1200e^{-0.06t}$, find the value of $N$ when the rate of decay is $36$ per year.",
+          "q": "Given $N(t) = 1200e^{-0.06t}$, find the value of $N$ when the population is decreasing at a rate of $36$ per year.",
           "a": "$N'(t) = -72e^{-0.06t}$. Set $|N'(t)| = 36$: $72e^{-0.06t} = 36 \\Rightarrow e^{-0.06t} = 0.5 \\Rightarrow t = \\frac{\\ln 2}{0.06}$. $N = 1200 \\times 0.5 = 600$."
         }
       ]
@@ -2139,7 +2139,7 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         },
         {
           "qid": "FD_025_m04",
-          "q": "A substance decays with $\\frac{dN}{dt} = -0.06N$. Find $N$ when the rate of decay is $12$ per unit time.",
+          "q": "A substance decays with $\\frac{dN}{dt} = -0.06N$. Find $N$ when the substance is decreasing at a rate of $12$ per unit time.",
           "a": "$-0.06N = -12 \\Rightarrow N = \\frac{12}{0.06} = 200$."
         },
         {
@@ -2156,7 +2156,7 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
         },
         {
           "qid": "FD_025_h02",
-          "q": "Given $N(t) = 800e^{-0.05t}$, find (i) the rate of decay when $N = 400$ and (ii) the time when $N = 400$.",
+          "q": "Given $N(t) = 800e^{-0.05t}$, find (i) $\\frac{dN}{dt}$ when $N = 400$ and (ii) the time when $N = 400$.",
           "a": "(i) $\\frac{dN}{dt} = -0.05 \\times 400 = -20$. (ii) $400 = 800e^{-0.05t} \\Rightarrow t = \\frac{\\ln 2}{0.05} \\approx 13.86$ units."
         },
         {
@@ -3739,6 +3739,266 @@ var ATOMISED_FURTHER_DIFFERENTIATION = {
           "qid": "FD_043_h05",
           "q": "A cylinder has a fixed volume $V$. Show that the curved surface area is $CSA = \\frac{2V}{r}$, and hence estimate the percentage change in curved surface area when the radius increases by $3\\%$.",
           "a": "$V = \\pi r^2 h$, so $h = \\frac{V}{\\pi r^2}$. Curved surface area: $CSA = 2\\pi r h = 2\\pi r \\cdot \\frac{V}{\\pi r^2} = \\frac{2V}{r}$. $\\frac{dCSA}{dr} = -\\frac{2V}{r^2}$. Now $\\frac{\\delta CSA}{CSA} \\approx \\frac{-\\frac{2V}{r^2} \\cdot \\delta r}{\\frac{2V}{r}} = -\\frac{\\delta r}{r}$. So a $3\\%$ increase in $r$ gives approximately a $3\\%$ decrease in curved surface area."
+        }
+      ]
+    },
+    {
+      "pt_id": "FD_044",
+      "topic": "Further Differentiation and Applications",
+      "subtopic": "Applications of Differentiation",
+      "concept": "Related Rates",
+      "pt": "Finding a rate of change using the chain rule with a geometric constraint",
+      "testing": "Testing: Set up geometric relationship, differentiate with respect to time using chain rule, substitute known values",
+      "reason_bank": [
+        "wrong_rule",
+        "missing_chain_factor",
+        "setup_error",
+        "substitution_error",
+        "sign_error",
+        "algebra_slip",
+        "not_sure"
+      ],
+      "easy": [
+        {
+          "qid": "FD_044_e01",
+          "q": "The radius of a circle increases at $2$ cm/s. Find the rate of increase of the area when $r = 5$ cm.",
+          "a": "$A = \\pi r^2$. $\\frac{dA}{dt} = 2\\pi r \\cdot \\frac{dr}{dt} = 2\\pi(5)(2) = 20\\pi \\approx 62.8$ cm²/s."
+        },
+        {
+          "qid": "FD_044_e02",
+          "q": "The side of a square increases at $0.5$ cm/s. Find the rate of increase of the area when the side is $8$ cm.",
+          "a": "$A = s^2$. $\\frac{dA}{dt} = 2s \\cdot \\frac{ds}{dt} = 2(8)(0.5) = 8$ cm²/s."
+        },
+        {
+          "qid": "FD_044_e03",
+          "q": "The radius of a sphere increases at $0.1$ cm/s. Find the rate of increase of the volume when $r = 3$ cm.",
+          "a": "$V = \\frac{4}{3}\\pi r^3$. $\\frac{dV}{dt} = 4\\pi r^2 \\cdot \\frac{dr}{dt} = 4\\pi(9)(0.1) = 3.6\\pi \\approx 11.3$ cm³/s."
+        }
+      ],
+      "medium": [
+        {
+          "qid": "FD_044_m01",
+          "q": "A spherical balloon is inflated so that its volume increases at $50$ cm³/s. Find the rate of increase of the radius when $r = 10$ cm.",
+          "a": "$V = \\frac{4}{3}\\pi r^3$. $\\frac{dV}{dt} = 4\\pi r^2 \\cdot \\frac{dr}{dt}$. $50 = 4\\pi(100) \\cdot \\frac{dr}{dt}$. $\\frac{dr}{dt} = \\frac{50}{400\\pi} = \\frac{1}{8\\pi} \\approx 0.0398$ cm/s."
+        },
+        {
+          "qid": "FD_044_m02",
+          "q": "Water is poured into a cylindrical tank of radius $4$ cm at $20$ cm³/s. Find the rate at which the water level rises.",
+          "a": "$V = \\pi r^2 h = 16\\pi h$. $\\frac{dV}{dt} = 16\\pi \\cdot \\frac{dh}{dt}$. $20 = 16\\pi \\cdot \\frac{dh}{dt}$. $\\frac{dh}{dt} = \\frac{20}{16\\pi} = \\frac{5}{4\\pi} \\approx 0.398$ cm/s."
+        },
+        {
+          "qid": "FD_044_m03",
+          "q": "A circular oil spill expands so that its radius increases at $0.4$ m/min. Find the rate of increase of the area when the area is $100\\pi$ m².",
+          "a": "When $A = 100\\pi$: $\\pi r^2 = 100\\pi \\Rightarrow r = 10$ m. $\\frac{dA}{dt} = 2\\pi r \\cdot \\frac{dr}{dt} = 2\\pi(10)(0.4) = 8\\pi \\approx 25.1$ m²/min."
+        },
+        {
+          "qid": "FD_044_m04",
+          "q": "A cube expands so that its surface area increases at $24$ cm²/s. Find the rate of increase of the volume when the edge length is $5$ cm.",
+          "a": "$S = 6s^2$, $\\frac{dS}{dt} = 12s \\cdot \\frac{ds}{dt}$. $24 = 12(5) \\cdot \\frac{ds}{dt} \\Rightarrow \\frac{ds}{dt} = 0.4$ cm/s. $V = s^3$, $\\frac{dV}{dt} = 3s^2 \\cdot \\frac{ds}{dt} = 3(25)(0.4) = 30$ cm³/s."
+        },
+        {
+          "qid": "FD_044_m05",
+          "q": "Water is poured into a conical vessel with semi-vertical angle $30°$ at $6$ cm³/s. Find the rate at which the water level rises when the depth is $4$ cm.",
+          "a": "Since the semi-vertical angle is $30°$: $r = h\\tan 30° = \\frac{h}{\\sqrt{3}}$. $V = \\frac{1}{3}\\pi r^2 h = \\frac{\\pi h^3}{9}$. $\\frac{dV}{dt} = \\frac{\\pi h^2}{3} \\cdot \\frac{dh}{dt}$. $6 = \\frac{16\\pi}{3} \\cdot \\frac{dh}{dt}$. $\\frac{dh}{dt} = \\frac{18}{16\\pi} = \\frac{9}{8\\pi} \\approx 0.358$ cm/s."
+        }
+      ],
+      "hard": [
+        {
+          "qid": "FD_044_h01",
+          "q": "A $5$ m ladder leans against a vertical wall. The base slides away from the wall at $0.3$ m/s. Find the rate at which the top slides down the wall when the base is $3$ m from the wall.",
+          "a": "$x^2 + y^2 = 25$. When $x = 3$: $y = 4$. Differentiating: $2x\\frac{dx}{dt} + 2y\\frac{dy}{dt} = 0$. $2(3)(0.3) + 2(4)\\frac{dy}{dt} = 0$. $\\frac{dy}{dt} = -\\frac{1.8}{8} = -0.225$ m/s. The top slides down at $0.225$ m/s."
+        },
+        {
+          "qid": "FD_044_h02",
+          "q": "Water flows into an inverted cone (height $12$ cm, radius $4$ cm) at $3$ cm³/s. Find the rate at which the water level rises when the depth is $6$ cm.",
+          "a": "By similar triangles: $\\frac{r}{h} = \\frac{4}{12} = \\frac{1}{3}$, so $r = \\frac{h}{3}$. $V = \\frac{1}{3}\\pi r^2 h = \\frac{\\pi h^3}{27}$. $\\frac{dV}{dt} = \\frac{\\pi h^2}{9} \\cdot \\frac{dh}{dt}$. $3 = \\frac{36\\pi}{9} \\cdot \\frac{dh}{dt} = 4\\pi \\cdot \\frac{dh}{dt}$. $\\frac{dh}{dt} = \\frac{3}{4\\pi} \\approx 0.239$ cm/s."
+        },
+        {
+          "qid": "FD_044_h03",
+          "q": "A $2$ m tall person walks away from a $6$ m tall lamp post at $1.5$ m/s. Find the rate at which the length of their shadow increases.",
+          "a": "Let $x$ = distance from lamp, $s$ = shadow length. By similar triangles: $\\frac{6}{x + s} = \\frac{2}{s}$. So $6s = 2(x + s) \\Rightarrow 4s = 2x \\Rightarrow s = \\frac{x}{2}$. $\\frac{ds}{dt} = \\frac{1}{2} \\cdot \\frac{dx}{dt} = \\frac{1}{2}(1.5) = 0.75$ m/s."
+        },
+        {
+          "qid": "FD_044_h04",
+          "q": "A trough is $3$ m long with triangular cross-section (top width $1$ m, depth $0.5$ m). Water is added at $0.02$ m³/min. Find the rate at which the water level rises when the depth is $0.2$ m.",
+          "a": "By similar triangles: $\\frac{w}{h} = \\frac{1}{0.5} = 2$, so $w = 2h$. Cross-sectional area $= \\frac{1}{2}wh = h^2$. $V = 3h^2$. $\\frac{dV}{dt} = 6h \\cdot \\frac{dh}{dt}$. $0.02 = 6(0.2) \\cdot \\frac{dh}{dt}$. $\\frac{dh}{dt} = \\frac{0.02}{1.2} = \\frac{1}{60} \\approx 0.0167$ m/min."
+        },
+        {
+          "qid": "FD_044_h05",
+          "q": "A particle moves along the curve $y = x^2$. When the particle is at the point $(2, 4)$, the $x$-coordinate is increasing at $3$ units/s. Find the rate at which the distance from the origin is increasing at that instant.",
+          "a": "Distance: $D = \\sqrt{x^2 + y^2} = \\sqrt{x^2 + x^4}$. $\\frac{dD}{dt} = \\frac{2x + 4x^3}{2\\sqrt{x^2 + x^4}} \\cdot \\frac{dx}{dt} = \\frac{x(1 + 2x^2)}{\\sqrt{x^2 + x^4}} \\cdot \\frac{dx}{dt}$. At $x = 2$: $\\frac{dD}{dt} = \\frac{2(9)}{\\sqrt{4 + 16}} \\cdot 3 = \\frac{54}{\\sqrt{20}} = \\frac{54}{2\\sqrt{5}} = \\frac{27\\sqrt{5}}{5} \\approx 12.08$ units/s."
+        }
+      ]
+    },
+    {
+      "pt_id": "FD_045",
+      "topic": "Further Differentiation and Applications",
+      "subtopic": "Second Derivatives",
+      "concept": "Locating Critical Points",
+      "pt": "Distinguishing between stationary points and turning points",
+      "testing": "Testing: Identify that all turning points are stationary, but not all stationary points are turning points (e.g. horizontal inflections)",
+      "reason_bank": [
+        "interpretation_mixup",
+        "conceptual_error",
+        "sign_error",
+        "algebra_slip",
+        "not_sure"
+      ],
+      "easy": [
+        {
+          "qid": "FD_045_e01",
+          "q": "The curve $y = x^3$ has a stationary point at the origin. Is it a turning point? Justify your answer.",
+          "a": "$y' = 3x^2 = 0$ at $x = 0$ ✓. For $x < 0$: $y' > 0$. For $x > 0$: $y' > 0$. The gradient does not change sign, so this is a stationary point of horizontal inflection — not a turning point."
+        },
+        {
+          "qid": "FD_045_e02",
+          "q": "The curve $y = x^2 - 4x + 3$ has a stationary point at $x = 2$. Is it a turning point? Justify your answer.",
+          "a": "$y' = 2x - 4 = 0$ at $x = 2$ ✓. For $x < 2$: $y' < 0$. For $x > 2$: $y' > 0$. The gradient changes from negative to positive, so this is a turning point (local minimum)."
+        },
+        {
+          "qid": "FD_045_e03",
+          "q": "True or false: Every turning point is a stationary point, and every stationary point is a turning point.",
+          "a": "The first part is true: at a turning point the gradient is zero. The second part is false: a stationary point where the gradient does not change sign (e.g. $y = x^3$ at the origin) is not a turning point."
+        }
+      ],
+      "medium": [
+        {
+          "qid": "FD_045_m01",
+          "q": "Find all stationary points of $y = x^3 - 3x^2 + 3x + 1$ and determine which (if any) are turning points.",
+          "a": "$y' = 3x^2 - 6x + 3 = 3(x - 1)^2 = 0 \\Rightarrow x = 1$. Since $y' = 3(x-1)^2 \\geq 0$ for all $x$, the gradient does not change sign. The stationary point at $(1, 2)$ is a horizontal inflection, not a turning point."
+        },
+        {
+          "qid": "FD_045_m02",
+          "q": "Find the stationary points of $y = x^4 - 4x^3$ and classify each as a turning point or a stationary point of inflection.",
+          "a": "$y' = 4x^3 - 12x^2 = 4x^2(x - 3) = 0 \\Rightarrow x = 0$ or $x = 3$. At $x = 0$: $y'$ is negative on both sides (check $x = -1$ and $x = 1$), so the gradient does not change sign — horizontal inflection at $(0, 0)$. At $x = 3$: $y'$ changes from negative to positive — turning point (local minimum) at $(3, -27)$."
+        },
+        {
+          "qid": "FD_045_m03",
+          "q": "Give an example of a function with a stationary point that is not a turning point, and explain why it fails to be a turning point.",
+          "a": "Example: $y = x^3$ at $x = 0$. $y'(0) = 0$ so it is stationary. But $y' = 3x^2 > 0$ for all $x \\neq 0$, so the function is increasing on both sides of $x = 0$. The gradient does not change sign, so it is not a turning point."
+        },
+        {
+          "qid": "FD_045_m04",
+          "q": "The function $f(x) = (x - 1)^3 + 2$ has a stationary point at $x = 1$. Classify it and justify.",
+          "a": "$f'(x) = 3(x-1)^2 = 0$ at $x = 1$. For $x < 1$: $f'(x) > 0$. For $x > 1$: $f'(x) > 0$. The gradient does not change sign — this is a stationary point of horizontal inflection at $(1, 2)$, not a turning point."
+        },
+        {
+          "qid": "FD_045_m05",
+          "q": "A student claims: 'Since $f'(2) = 0$ and $f''(2) = 0$, the point $x = 2$ is an inflection point, not a turning point.' Is this reasoning valid? Explain.",
+          "a": "The reasoning is not valid. $f''(2) = 0$ alone does not confirm an inflection point — we need to check whether $f''$ changes sign at $x = 2$. For example, $f(x) = (x - 2)^4$ has $f'(2) = 0$ and $f''(2) = 0$, but $x = 2$ is a local minimum (a turning point), not an inflection."
+        }
+      ],
+      "hard": [
+        {
+          "qid": "FD_045_h01",
+          "q": "Find and classify all stationary points of $y = 3x^5 - 5x^3$.",
+          "a": "$y' = 15x^4 - 15x^2 = 15x^2(x^2 - 1) = 15x^2(x-1)(x+1) = 0 \\Rightarrow x = -1, 0, 1$. At $x = -1$: $y'$ changes from $+$ to $-$ — local maximum at $(-1, 2)$. At $x = 0$: $y' \\leq 0$ on both sides — horizontal inflection at $(0, 0)$. At $x = 1$: $y'$ changes from $-$ to $+$ — local minimum at $(1, -2)$."
+        },
+        {
+          "qid": "FD_045_h02",
+          "q": "Let $f(x) = x^2(x - 2)^3$. Find all stationary points and determine which are turning points.",
+          "a": "$f'(x) = 2x(x-2)^3 + 3x^2(x-2)^2 = x(x-2)^2(5x - 4) = 0 \\Rightarrow x = 0, \\frac{4}{5}, 2$. At $x = 0$: $f'$ changes from $+$ to $-$ — turning point (local max) at $(0, 0)$. At $x = \\frac{4}{5}$: $f'$ changes from $-$ to $+$ — turning point (local min) at $(\\frac{4}{5}, -\\frac{6912}{3125})$. At $x = 2$: $f'$ has factor $(x-2)^2$ so does not change sign — horizontal inflection at $(2, 0)$."
+        },
+        {
+          "qid": "FD_045_h03",
+          "q": "Explain why $y = x^n$ at $x = 0$ is a turning point when $n$ is even but not when $n$ is odd (for integer $n \\geq 2$).",
+          "a": "$y' = nx^{n-1}$. When $n$ is even: $n - 1$ is odd, so $y'$ changes sign at $x = 0$ (negative for $x < 0$, positive for $x > 0$) — turning point (minimum). When $n$ is odd: $n - 1$ is even, so $y' = nx^{n-1} \\geq 0$ for all $x$ — the gradient does not change sign, so $x = 0$ is a stationary inflection, not a turning point."
+        },
+        {
+          "qid": "FD_045_h04",
+          "q": "Find all stationary points of $y = x^4 - 4x^3 + 6x^2 - 4x + 1$ and classify them.",
+          "a": "$y = (x-1)^4$. $y' = 4(x-1)^3 = 0 \\Rightarrow x = 1$. For $x < 1$: $y' < 0$. For $x > 1$: $y' > 0$. The gradient changes sign from negative to positive — this is a turning point (local minimum) at $(1, 0)$, despite $y''(1) = 0$."
+        },
+        {
+          "qid": "FD_045_h05",
+          "q": "The function $g(x) = x^3(x - 4)$ has stationary points at $x = 0$ and $x = 3$. Classify each as a turning point or inflection and verify using a sign diagram of $g'(x)$.",
+          "a": "$g'(x) = 4x^3 - 12x^2 = 4x^2(x - 3)$. Sign diagram of $g'$: negative for $x < 0$, negative for $0 < x < 3$, positive for $x > 3$. At $x = 0$: $g'$ does not change sign — horizontal inflection at $(0, 0)$. At $x = 3$: $g'$ changes from negative to positive — turning point (local minimum) at $(3, -27)$."
+        }
+      ]
+    },
+    {
+      "pt_id": "FD_046",
+      "topic": "Further Differentiation and Applications",
+      "subtopic": "Second Derivatives",
+      "concept": "Locating Critical Points",
+      "pt": "Recognising that f''(a) = 0 is necessary but not sufficient for an inflection point",
+      "testing": "Testing: Check whether f'' actually changes sign at a point where f''(a) = 0",
+      "reason_bank": [
+        "interpretation_mixup",
+        "conceptual_error",
+        "wrong_rule",
+        "algebra_slip",
+        "not_sure"
+      ],
+      "easy": [
+        {
+          "qid": "FD_046_e01",
+          "q": "For $y = x^4$, show that $y''(0) = 0$ but that $x = 0$ is not a point of inflection.",
+          "a": "$y'' = 12x^2$. $y''(0) = 0$ ✓. But $y'' = 12x^2 \\geq 0$ for all $x$, so $y''$ does not change sign at $x = 0$. The curve is concave up on both sides — $x = 0$ is not an inflection point (it is a minimum)."
+        },
+        {
+          "qid": "FD_046_e02",
+          "q": "For $y = x^3$, show that $y''(0) = 0$ and verify that $x = 0$ is a point of inflection.",
+          "a": "$y'' = 6x$. $y''(0) = 0$ ✓. For $x < 0$: $y'' < 0$ (concave down). For $x > 0$: $y'' > 0$ (concave up). Since $y''$ changes sign, $x = 0$ is a point of inflection."
+        },
+        {
+          "qid": "FD_046_e03",
+          "q": "True or false: If $f''(a) = 0$, then $x = a$ is a point of inflection.",
+          "a": "False. $f''(a) = 0$ is necessary but not sufficient. We also need $f''$ to change sign at $x = a$. Counterexample: $f(x) = x^4$ has $f''(0) = 0$ but $x = 0$ is a local minimum, not an inflection."
+        }
+      ],
+      "medium": [
+        {
+          "qid": "FD_046_m01",
+          "q": "Find all values of $x$ where $f''(x) = 0$ for $f(x) = x^4 - 6x^2 + 8x + 1$, and determine which are points of inflection.",
+          "a": "$f''(x) = 12x^2 - 12 = 12(x^2 - 1) = 0 \\Rightarrow x = \\pm 1$. At $x = -1$: $f''$ changes from $+$ to $-$ ✓ inflection. At $x = 1$: $f''$ changes from $-$ to $+$ ✓ inflection. Both are genuine inflection points."
+        },
+        {
+          "qid": "FD_046_m02",
+          "q": "For $f(x) = x^6$, find $f''(0)$ and determine whether $x = 0$ is a point of inflection.",
+          "a": "$f''(x) = 30x^4$. $f''(0) = 0$. But $f''(x) = 30x^4 \\geq 0$ for all $x$, so $f''$ does not change sign at $x = 0$. This is not a point of inflection — it is a local minimum."
+        },
+        {
+          "qid": "FD_046_m03",
+          "q": "Find all points of inflection of $y = 3x^5 - 5x^4$.",
+          "a": "$y'' = 60x^3 - 60x^2 = 60x^2(x - 1) = 0 \\Rightarrow x = 0$ or $x = 1$. At $x = 0$: $y'' = 60x^2(x-1)$. For $x$ near $0$, the factor $x^2$ is positive and $(x-1)$ is negative on both sides, so $y'' < 0$ on both sides — not an inflection. At $x = 1$: $y''$ changes from $-$ to $+$ — inflection at $(1, -2)$."
+        },
+        {
+          "qid": "FD_046_m04",
+          "q": "A student writes: '$f''(x) = 0$ at $x = 2$, and $f'''(2) = 6 \\neq 0$, so $x = 2$ is a point of inflection.' Is this reasoning correct?",
+          "a": "Yes, this reasoning is correct. If $f''(a) = 0$ and $f'''(a) \\neq 0$, then $f''$ changes sign at $x = a$ (since $f''$ passes through zero with a non-zero slope), confirming a genuine point of inflection."
+        },
+        {
+          "qid": "FD_046_m05",
+          "q": "Find all values of $x$ where $f''(x) = 0$ for $f(x) = x^4 - 4x^3 + 6x^2$. Determine which (if any) are inflection points.",
+          "a": "$f''(x) = 12x^2 - 24x + 12 = 12(x - 1)^2 = 0 \\Rightarrow x = 1$. Since $f''(x) = 12(x-1)^2 \\geq 0$ for all $x$, the second derivative does not change sign at $x = 1$. No inflection point exists — $x = 1$ is a minimum."
+        }
+      ],
+      "hard": [
+        {
+          "qid": "FD_046_h01",
+          "q": "For $f(x) = x^2(x - 1)^3$, find all candidates for inflection points (where $f''(x) = 0$) and verify which are genuine.",
+          "a": "$f'(x) = x(x-1)^2(5x - 2)$. $f''(x) = 2(x-1)(10x^2 - 8x + 1)$. Setting $f''(x) = 0$: $x = 1$ or $10x^2 - 8x + 1 = 0 \\Rightarrow x = \\frac{4 \\pm \\sqrt{6}}{10}$. Check sign changes: all three are genuine inflection points since $f''$ changes sign at each (the quadratic factor has two distinct roots, and the linear factor gives a simple zero at $x = 1$)."
+        },
+        {
+          "qid": "FD_046_h02",
+          "q": "Explain why $f(x) = x^{2n}$ (for positive integer $n$) always has $f''(0) = 0$ when $n \\geq 2$, but never has an inflection at $x = 0$.",
+          "a": "$f''(x) = 2n(2n-1)x^{2n-2}$. When $n \\geq 2$: $f''(0) = 0$ ✓. But $2n - 2$ is even, so $x^{2n-2} \\geq 0$ for all $x$. Therefore $f''(x) \\geq 0$ everywhere — it does not change sign at $x = 0$. The origin is always a local minimum, never an inflection."
+        },
+        {
+          "qid": "FD_046_h03",
+          "q": "The function $g(x) = x^5 - 5x^4 + 10x^3 - 10x^2 + 5x - 1$ can be written as $(x - 1)^5$. Find $g''(1)$ and determine whether $x = 1$ is a point of inflection. What feature does the graph have at $x = 1$?",
+          "a": "$g''(x) = 20(x-1)^3$. $g''(1) = 0$. For $x < 1$: $g''(x) < 0$. For $x > 1$: $g''(x) > 0$. Since $g''$ changes sign, $x = 1$ is a genuine inflection point. The graph has a horizontal inflection at $(1, 0)$ since $g'(1) = 0$ as well."
+        },
+        {
+          "qid": "FD_046_h04",
+          "q": "Find all inflection points of $f(x) = e^{-x^2}$ and verify each one.",
+          "a": "$f'(x) = -2xe^{-x^2}$. $f''(x) = (4x^2 - 2)e^{-x^2} = 0 \\Rightarrow 4x^2 - 2 = 0 \\Rightarrow x = \\pm \\frac{1}{\\sqrt{2}}$. At $x = -\\frac{1}{\\sqrt{2}}$: $f''$ changes from $+$ to $-$ ✓. At $x = \\frac{1}{\\sqrt{2}}$: $f''$ changes from $-$ to $+$ ✓. Both are genuine inflection points."
+        },
+        {
+          "qid": "FD_046_h05",
+          "q": "For what value(s) of $k$ does $f(x) = x^4 + kx^2$ have exactly two points of inflection?",
+          "a": "$f''(x) = 12x^2 + 2k = 0 \\Rightarrow x^2 = -\\frac{k}{6}$. For two real solutions: $-\\frac{k}{6} > 0 \\Rightarrow k < 0$. When $k < 0$: $x = \\pm\\sqrt{-\\frac{k}{6}}$. At each, $f''(x) = 12x^2 + 2k$ changes sign (it is a quadratic in $x$ opening upward with two roots), so both are genuine inflection points. Answer: $k < 0$."
         }
       ]
     }
