@@ -18,10 +18,21 @@ var ATOMISED_REASONS = [
 // ======================================================================
 
 var ATOMISED_DATA = (function() {
+  // Each topic file exposes a global with a .questions array.
+  // To add a new topic: create the file, add its global name here.
+  var _sources = [
+    typeof ATOMISED_FURTHER_DIFFERENTIATION !== 'undefined' ? ATOMISED_FURTHER_DIFFERENTIATION : null,
+    typeof ATOMISED_LOGARITHMIC             !== 'undefined' ? ATOMISED_LOGARITHMIC             : null,
+    typeof ATOMISED_UNCATEGORISED           !== 'undefined' ? ATOMISED_UNCATEGORISED           : null,
+    typeof ATOMISED_INTEGRALS               !== 'undefined' ? ATOMISED_INTEGRALS               : null,
+    typeof ATOMISED_KINEMATICS              !== 'undefined' ? ATOMISED_KINEMATICS              : null,
+    typeof ATOMISED_CRV_NORMAL              !== 'undefined' ? ATOMISED_CRV_NORMAL              : null,
+    typeof ATOMISED_DRV                     !== 'undefined' ? ATOMISED_DRV                     : null,
+    typeof ATOMISED_INTERVAL_ESTIMATES      !== 'undefined' ? ATOMISED_INTERVAL_ESTIMATES      : null
+  ];
+
   var all = [];
-  if (typeof ATOMISED_DIFFERENTIATION !== 'undefined') all = all.concat(ATOMISED_DIFFERENTIATION.questions);
-  if (typeof ATOMISED_INTEGRATION !== 'undefined') all = all.concat(ATOMISED_INTEGRATION.questions);
-  if (typeof ATOMISED_PROBABILITY !== 'undefined') all = all.concat(ATOMISED_PROBABILITY.questions);
+  _sources.forEach(function(src) { if (src) all = all.concat(src.questions); });
 
   // Build lookup indexes
   var byPtId = {};
